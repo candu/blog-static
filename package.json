@@ -1,7 +1,7 @@
 {
   "name": "blog-static",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Static files, scripts, embeds, etc. for my personal blog, candu can do.",
   "author": "Evan Savage",
   "devDependencies": {
