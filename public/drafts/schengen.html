@@ -8,12 +8,33 @@
       h1 {
         color: magenta;
       }
+
+      #counter_wrapper {
+        margin-left: 1rem;
+      }
     </style>
   </head>
   <body>
     <h1>this is a thing</h1>
+    <button id="btn_increment">Increment</button>
+    <button id="btn_reset">Reset</button>
+    <span id="counter_wrapper"> Counter: <span id="counter">0</span> </span>
     <script>
-      console.log("hello, world");
+      const $counter = document.getElementById("counter");
+      const $btnIncrement = document.getElementById("btn_increment");
+      const $btnReset = document.getElementById("btn_reset");
+
+      let count = 0;
+
+      $btnIncrement.addEventListener("click", () => {
+        count++;
+        counter.textContent = count;
+      });
+
+      $btnReset.addEventListener("click", () => {
+        count = 0;
+        counter.textContent = count;
+      });
     </script>
   </body>
 </html>
