@@ -1,0 +1,12 @@
+{
+  "name": "blog-static",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static files, scripts, embeds, etc. for my personal blog, candu can do.",
+  "author": "Evan Savage",
+  "devDependencies": {
+    "eslint": "^9.1.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.5"
+  }
+}
