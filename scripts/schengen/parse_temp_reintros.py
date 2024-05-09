@@ -86,14 +86,60 @@ def is_duration_line(line):
 def parse_duration(start_raw, end_raw, country_code):
     tz = IANA_COUNTRY_TIMEZONES.get(country_code, pytz.utc)
 
-    if re.match('^\d{2}/\d{2}/\d{4}$', start_raw) and re.match('^\d{2}/\d{2}/\d{4}$', end_raw):
-        start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%Y'))
-        if start_raw == end_raw:
-            end_parsed = start_parsed + datetime.timedelta(days=1)
-        else:
-            end_parsed = tz.localize(datetime.datetime.strptime(end_raw, '%d/%m/%Y'))
+    if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', end_raw):
+        end_parsed = tz.localize(datetime.datetime.strptime(end_raw, '%d/%m/%Y'))
 
-        return start_parsed.isoformat(), end_parsed.isoformat()
+        if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', start_raw):
+            start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%Y'))
+
+            if start_raw == end_raw:
+                end_parsed += datetime.timedelta(days=1)
+            
+            return start_parsed.isoformat(), end_parsed.isoformat()
+        
+        if re.match(r'^\d{1,2}/\d{1,2}/\d{2}$', start_raw):
+            start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%y'))
+
+            if start_raw == end_raw:
+                end_parsed += datetime.timedelta(days=1)
+            
+            return start_parsed.isoformat(), end_parsed.isoformat()
+        
+        match = re.match(r'^(\d{1,2})$', start_raw)
+        if match:
+            try:
+                day = int(match.group(1))
+                start_parsed = end_parsed.replace(day=day)
+                return start_parsed.isoformat(), end_parsed.isoformat()
+            except ValueError:
+                print(start_raw, end_raw)
+
+        match = re.match(r'^(\d{1,2})/(\d{1,2})/?$', start_raw)
+        if match:
+            try:
+                day = int(match.group(1))
+                month = int(match.group(2))
+                start_parsed = end_parsed.replace(day=day, month=month)
+                return start_parsed.isoformat(), end_parsed.isoformat()
+            except ValueError:
+                print(start_raw, end_raw)
+
+    if re.match(r'^\d{2}/\d{2}/\d{4}, \d{1,2}h$', start_raw):
+        start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%Y, %Hh'))
+
+        match = re.match(r'^(\d{1,2}):(\d{2})$', end_raw)
+        if match:
+            hour = int(match.group(1))
+            minute = int(match.group(2))
+            end_parsed = start_parsed.replace(hour=hour, minute=minute)
+            return start_parsed.isoformat(), end_parsed.isoformat()
+
+    if re.match(r'^\d{2}/\d{2}/\d{4}, \d{1,2}h\d{2}$', end_raw):
+        end_parsed = tz.localize(datetime.datetime.strptime(end_raw, '%d/%m/%Y, %Hh%M'))
+
+        if re.match(r'^\d{2}/\d{2}/\d{4}, \d{1,2}h\d{2}$', start_raw):
+            start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%Y, %Hh%M'))
+            return start_parsed.isoformat(), end_parsed.isoformat()
     
     return start_raw, end_raw
 
@@ -139,7 +185,7 @@ def parse_durations(lines, country_code):
             }
         })
     else:
-        for match in re.finditer(r'(?P<start>\d{1,2}(?:/\d{1,2})?(?:/\d{4})?/?)-(?P<end>(?:\d{1,2}/)?\d{1,2}[/-]\d{3,4})', durations_str):
+        for match in re.finditer(r'(?P<start>\d{1,2}(?:/\d{1,2})?(?:/\d{2,4})?/?)-(?P<end>(?:\d{1,2}/)?\d{1,2}[/-]\d{2,4})', durations_str):
             parse_match_duration(match)
             
         for match in re.finditer(r'(?P<start>\d{2}/\d{2}/\d{4}, \d{1,2}h)-(?P<end>\d{1,2}:\d{2})', durations_str):
@@ -229,4 +275,12 @@ for line in sys.stdin:
 
 records = list(map(get_records_data_for_lines, records_lines))
 
-print(json.dumps(records, indent=2))
+def show_record(record):
+    first_duration = record['durations'][0]
+    return first_duration['start']['raw'] == first_duration['start']['parsed']
+        
+
+filtered_records = list(filter(show_record, records))
+
+print(len(filtered_records))
+print(json.dumps(filtered_records, indent=2))
