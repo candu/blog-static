@@ -1,5 +1,5 @@
 """
-parse_temp_reintros.py
+parse_temp_reintros.py < [input_txt] > [output_json]
 
 Parse the temporary reintroduction of border control data from the Schengen
 Area. This data is available from the European Commission's website at:
@@ -275,12 +275,4 @@ for line in sys.stdin:
 
 records = list(map(get_records_data_for_lines, records_lines))
 
-def show_record(record):
-    first_duration = record['durations'][0]
-    return first_duration['start']['raw'] == first_duration['start']['parsed']
-        
-
-filtered_records = list(filter(show_record, records))
-
-print(len(filtered_records))
-print(json.dumps(filtered_records, indent=2))
+print(json.dumps(records, indent=2))
