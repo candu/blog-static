@@ -8,6 +8,7 @@ https://home-affairs.ec.europa.eu/policies/schengen-borders-and-visa/schengen-ar
 """
 import datetime
 import json
+import pytz
 import re
 import sys
 
@@ -38,6 +39,32 @@ ISO_COUNTRY_CODES = {
     'Switzerland': 'CH'
 }
 
+IANA_COUNTRY_TIMEZONES = {
+    'AT': pytz.timezone('Europe/Vienna'),
+    'BE': pytz.timezone('Europe/Brussels'),
+    'CH': pytz.timezone('Europe/Zurich'),
+    'CZ': pytz.timezone('Europe/Prague'),
+    'DE': pytz.timezone('Europe/Berlin'),
+    'DK': pytz.timezone('Europe/Copenhagen'),
+    'EE': pytz.timezone('Europe/Tallinn'),
+    'ES': pytz.timezone('Europe/Madrid'),
+    'FI': pytz.timezone('Europe/Helsinki'),
+    'FR': pytz.timezone('Europe/Paris'),
+    'HU': pytz.timezone('Europe/Budapest'),
+    'IS': pytz.timezone('Atlantic/Reykjavik'),
+    'IT': pytz.timezone('Europe/Rome'),
+    'LT': pytz.timezone('Europe/Vilnius'),
+    'LV': pytz.timezone('Europe/Riga'),
+    'MT': pytz.timezone('Europe/Malta'),
+    'NL': pytz.timezone('Europe/Amsterdam'),
+    'NO': pytz.timezone('Europe/Oslo'),
+    'PL': pytz.timezone('Europe/Warsaw'),
+    'PT': pytz.timezone('Europe/Lisbon'),
+    'SE': pytz.timezone('Europe/Stockholm'),
+    'SI': pytz.timezone('Europe/Ljubljana'),
+    'SK': pytz.timezone('Europe/Bratislava')
+}
+
 def is_ids_line(line):
     return re.match(r'^\d+ ?(-\d+)?$', line)
 
@@ -56,10 +83,22 @@ def is_duration_line(line):
     
     return False
 
-def parse_duration(start, end):
-    return start, end
+def parse_duration(start_raw, end_raw, country_code):
+    tz = IANA_COUNTRY_TIMEZONES.get(country_code, pytz.utc)
 
-def parse_durations(lines):
+    if re.match('^\d{2}/\d{2}/\d{4}$', start_raw) and re.match('^\d{2}/\d{2}/\d{4}$', end_raw):
+        start_parsed = tz.localize(datetime.datetime.strptime(start_raw, '%d/%m/%Y'))
+        if start_raw == end_raw:
+            end_parsed = start_parsed + datetime.timedelta(days=1)
+        else:
+            end_parsed = tz.localize(datetime.datetime.strptime(end_raw, '%d/%m/%Y'))
+
+        return start_parsed.isoformat(), end_parsed.isoformat()
+    
+    return start_raw, end_raw
+
+
+def parse_durations(lines, country_code):
     durations_str = ' '.join(lines)
     durations_str = re.sub(r' ?- ?', '-', durations_str)
     durations_str = re.sub(r' ?/ ?', '/', durations_str)
@@ -68,24 +107,36 @@ def parse_durations(lines):
 
     def parse_match_duration(match):
         duration_str = match.group(0)
-        start = match.group('start')
-        end = match.group('end').replace('-', '/')
-        start, end = parse_duration(start, end)
+        start_raw = match.group('start')
+        end_raw = match.group('end').replace('-', '/')
+        start_parsed, end_parsed = parse_duration(start_raw, end_raw, country_code)
 
         durations.append({
             'raw': duration_str,
-            'start': start,
-            'end': end
+            'start': {
+                'raw': start_raw,
+                'parsed': start_parsed
+            },
+            'end': {
+                'raw': end_raw,
+                'parsed': end_parsed
+            }
         })
 
     if re.match(r'^\d{2}/\d{2}/\d{4}$', durations_str):
-        start = durations_str
-        end = durations_str
-        start, end = parse_duration(start, end)
+        start_raw = durations_str
+        end_raw = durations_str
+        start_parsed, end_parsed = parse_duration(start_raw, end_raw, country_code)
         durations.append({
             'raw': durations_str,
-            'start': start,
-            'end': end
+            'start': {
+                'raw': start_raw,
+                'parsed': start_parsed
+            },
+            'end': {
+                'raw': end_raw,
+                'parsed': end_parsed
+            }
         })
     else:
         for match in re.finditer(r'(?P<start>\d{1,2}(?:/\d{1,2})?(?:/\d{4})?/?)-(?P<end>(?:\d{1,2}/)?\d{1,2}[/-]\d{3,4})', durations_str):
@@ -119,7 +170,7 @@ def get_records_data_for_lines(lines):
     while is_duration_line(lines[i]):
         lines_durations.append(lines[i])
         i += 1
-    durations = parse_durations(lines_durations)
+    durations = parse_durations(lines_durations, country_code)
 
     lines_reason = lines[i:]
     reason = parse_reason(lines_reason)
@@ -177,4 +228,5 @@ for line in sys.stdin:
     records_lines[-1].append(line)
 
 records = list(map(get_records_data_for_lines, records_lines))
+
 print(json.dumps(records, indent=2))
