@@ -159,14 +159,8 @@ def parse_durations(lines, country_code):
 
         durations.append({
             'raw': duration_str,
-            'start': {
-                'raw': start_raw,
-                'parsed': start_parsed
-            },
-            'end': {
-                'raw': end_raw,
-                'parsed': end_parsed
-            }
+            'start': start_parsed,
+            'end': end_parsed
         })
 
     if re.match(r'^\d{2}/\d{2}/\d{4}$', durations_str):
@@ -175,14 +169,8 @@ def parse_durations(lines, country_code):
         start_parsed, end_parsed = parse_duration(start_raw, end_raw, country_code)
         durations.append({
             'raw': durations_str,
-            'start': {
-                'raw': start_raw,
-                'parsed': start_parsed
-            },
-            'end': {
-                'raw': end_raw,
-                'parsed': end_parsed
-            }
+            'start': start_parsed,
+            'end': end_parsed
         })
     else:
         for match in re.finditer(r'(?P<start>\d{1,2}(?:/\d{1,2})?(?:/\d{2,4})?/?)-(?P<end>(?:\d{1,2}/)?\d{1,2}[/-]\d{2,4})', durations_str):
@@ -236,7 +224,7 @@ def parse_records(records_data):
         return [{
             'id': records_data['ids'][0],
             'country': records_data['country'],
-            'durations': records_data['durations'],
+            'durations': records_data['durations'][0],
             'reason': records_data['reason']
         }]
 
@@ -273,6 +261,9 @@ for line in sys.stdin:
 
     records_lines[-1].append(line)
 
-records = list(map(get_records_data_for_lines, records_lines))
+records_data = list(map(get_records_data_for_lines, records_lines))
+records = []
+for record_data in records_data:
+    records.extend(parse_records(record_data))
 
 print(json.dumps(records, indent=2))
