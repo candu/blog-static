@@ -4,43 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Temporary Reintroduction of Border Controls</title>
-    <style>
-      h1 {
-        color: magenta;
-      }
-
-      #counter_wrapper {
-        margin-left: 1rem;
-      }
-    </style>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"
-      integrity="sha512-vc58qvvBdrDR4etbxMdlTt4GBQk1qjvyORR2nrsPsFPyrs+/u5c3+1Ct6upOgdZoIl7eq6k3a1UPDSNAQi/32A=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
-  </head>
+    <link rel="stylesheet" href="./style.css" />
   <body>
-    <h1>this is a thing</h1>
-    <button id="btn_increment">Increment</button>
-    <button id="btn_reset">Reset</button>
-    <span id="counter_wrapper"> Counter: <span id="counter">0</span> </span>
-    <script>
-      const $counter = document.getElementById("counter");
-      const $btnIncrement = document.getElementById("btn_increment");
-      const $btnReset = document.getElementById("btn_reset");
-
-      let count = 0;
-
-      $btnIncrement.addEventListener("click", () => {
-        count++;
-        counter.textContent = count;
-      });
-
-      $btnReset.addEventListener("click", () => {
-        count = 0;
-        counter.textContent = count;
-      });
-    </script>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>
