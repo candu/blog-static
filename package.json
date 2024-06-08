@@ -4,9 +4,13 @@
   "version": "0.1.0",
   "description": "Static files, scripts, embeds, etc. for my personal blog, candu can do.",
   "author": "Evan Savage",
+  "scripts": {
+    "serve": "http-server -p 8080"
+  },
   "devDependencies": {
     "eslint": "^9.1.0",
     "eslint-config-prettier": "^9.1.0",
+    "http-server": "^14.1.1",
     "prettier": "^3.2.5"
   }
 }
