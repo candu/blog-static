@@ -1,5 +1,8 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import { DateTime } from "https://cdn.jsdelivr.net/npm/luxon@3.4.4/+esm";
+import tippy, {
+  followCursor,
+} from "https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/+esm";
 import { feature } from "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm";
 
 const SCHENGEN_COUNTRY_NAMES = Object.keys({
@@ -133,12 +136,27 @@ async function main() {
     .attr("stroke", "#3863FF")
     .attr("fill", "#001489");
 
-  svg
+  const $activeCountries = svg
+    .selectAll("path.country-active")
+    .data(activeCountries.features);
+
+  $activeCountries
+    .enter()
     .append("path")
-    .attr("d", path(activeCountries))
+    .attr("class", "country-active")
+    .attr("d", (d) => path(d))
     .attr("stroke", "#f31")
     .attr("stroke-width", 1.5)
-    .attr("fill", "#600");
+    .attr("fill", "#600")
+    .attr("data-tippy-content", (d) => {
+      return `${d.properties.name}`;
+    })
+    .call((s) =>
+      tippy(s.nodes(), {
+        followCursor: true,
+        plugins: [followCursor],
+      })
+    );
 
   document.body.appendChild(svg.node());
 }
