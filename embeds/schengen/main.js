@@ -1,3 +1,4 @@
+import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import { DateTime } from "https://cdn.jsdelivr.net/npm/luxon@3.4.4/+esm";
 import tippy, {
@@ -76,13 +77,14 @@ async function main() {
   ]);
 
   // TODO: compute size from current viewport
-  const size = 960;
+  const width = 960;
+  const mapHeight = 720;
 
   const projection = d3
     .geoAzimuthalEqualArea()
-    .rotate([-10.0, -52.0])
-    .translate([size / 2, size / 2])
-    .scale(1200)
+    .rotate([-10.0, -54.0])
+    .translate([width / 2, mapHeight / 2])
+    .scale(1000)
     .precision(0.1);
 
   const path = d3.geoPath(projection);
@@ -114,9 +116,13 @@ async function main() {
     }
   );
 
-  // TODO: timeline
+  // MAP
 
-  const svg = d3.create("svg").attr("width", size).attr("height", size);
+  const svg = d3
+    .create("svg")
+    .attr("width", width)
+    .attr("height", mapHeight)
+    .attr("viewBox", `0 0 ${width} ${mapHeight}`);
 
   svg
     .append("path")
@@ -195,6 +201,48 @@ async function main() {
     );
 
   document.body.appendChild(svg.node());
+
+  // TIMELINE
+
+  const timelineHeight = 480;
+
+  const countryColors = d3.scaleOrdinal(d3.schemeCategory10);
+
+  const countryBands = d3
+    .scaleBand(SCHENGEN_COUNTRY_NAMES, [0, timelineHeight])
+    .padding(0.1);
+
+  const plotTimeline = Plot.plot({
+    marks: [
+      Plot.barX(schengenTempReintros, {
+        y: (d) => d.country.name,
+        x1: (d) => d.duration.start.toJSDate(),
+        x2: (d) => d.duration.end.toJSDate(),
+        fill: (d) => countryColors(d.country.name),
+        stroke: "#fff",
+      }),
+      Plot.tip(
+        schengenTempReintros,
+        Plot.pointer({
+          y: (d) => d.country.name,
+          x1: (d) => d.duration.start.toJSDate(),
+          x2: (d) => d.duration.start.toJSDate(),
+          title: (d) => `${d.country.name}\n${d.reason}`,
+        })
+      ),
+    ],
+    height: 480,
+    width,
+    x: { grid: true },
+    y: {
+      domain: countryBands.domain(),
+      label: null,
+      tickFormat: null,
+      tickSize: null,
+    },
+  });
+
+  document.body.append(plotTimeline);
 }
 
 main();
