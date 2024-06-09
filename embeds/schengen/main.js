@@ -130,11 +130,27 @@ async function main() {
     .attr("stroke", "#fff")
     .attr("fill", "#ccc");
 
-  svg
+  const $schengenCountries = svg
+    .selectAll("path.country-schengen")
+    .data(schengenCountries.features);
+
+  $schengenCountries
+    .enter()
     .append("path")
-    .attr("d", path(schengenCountries))
+    .attr("class", "country-schengen")
+    .attr("d", (d) => path(d))
     .attr("stroke", "#3863FF")
-    .attr("fill", "#001489");
+    .attr("fill", "#001489")
+    .attr("data-tippy-content", (d) => {
+      return `<strong>${d.properties.name}</strong>`;
+    })
+    .call((s) =>
+      tippy(s.nodes(), {
+        allowHTML: true,
+        followCursor: true,
+        plugins: [followCursor],
+      })
+    );
 
   const $activeCountries = svg
     .selectAll("path.country-active")
@@ -149,10 +165,30 @@ async function main() {
     .attr("stroke-width", 1.5)
     .attr("fill", "#600")
     .attr("data-tippy-content", (d) => {
-      return `${d.properties.name}`;
+      const activeTempReintrosForCountry = activeTempReintros.filter(
+        ({ country }) => country.name === d.properties.name
+      );
+
+      if (activeTempReintrosForCountry.length === 0) {
+        return `${d.properties.name}`;
+      }
+
+      const [
+        {
+          duration: { raw: durationStr },
+          reason,
+        },
+      ] = activeTempReintrosForCountry;
+
+      return `
+        <strong>${d.properties.name}</strong><br>
+        <span>${durationStr}</span>
+        <p>${reason}</p>
+      `;
     })
     .call((s) =>
       tippy(s.nodes(), {
+        allowHTML: true,
         followCursor: true,
         plugins: [followCursor],
       })
