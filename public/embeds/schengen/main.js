@@ -1,4 +1,3 @@
-import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 import { DateTime } from "https://cdn.jsdelivr.net/npm/luxon@3.4.4/+esm";
 import tippy, {
@@ -6,7 +5,7 @@ import tippy, {
 } from "https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/+esm";
 import { feature } from "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm";
 
-const SCHENGEN_COUNTRY_NAMES = Object.keys({
+const SCHENGEN_COUNTRY_CODES = {
   Austria: "AT",
   Belgium: "BE",
   "Czech Republic": "CZ",
@@ -34,7 +33,40 @@ const SCHENGEN_COUNTRY_NAMES = Object.keys({
   Spain: "ES",
   Sweden: "SE",
   Switzerland: "CH",
-});
+};
+
+const SCHENGEN_COUNTRY_NAMES = Array.from(
+  Object.keys(SCHENGEN_COUNTRY_CODES)
+).toSorted((a, b) => a.localeCompare(b));
+
+const SCHENGEN_COUNTRY_FLAGS = {
+  AT: "🇦🇹",
+  BE: "🇧🇪",
+  CZ: "🇨🇿",
+  DK: "🇩🇰",
+  EE: "🇪🇪",
+  FI: "🇫🇮",
+  FR: "🇫🇷",
+  DE: "🇩🇪",
+  EL: "🇬🇷",
+  HU: "🇭🇺",
+  IS: "🇮🇸",
+  IT: "🇮🇹",
+  LV: "🇱🇻",
+  LI: "🇱🇮",
+  LT: "🇱🇹",
+  LU: "🇱🇺",
+  MT: "🇲🇹",
+  NL: "🇳🇱",
+  NO: "🇳🇴",
+  PL: "🇵🇱",
+  PT: "🇵🇹",
+  SK: "🇸🇰",
+  SI: "🇸🇮",
+  ES: "🇪🇸",
+  SE: "🇸🇪",
+  CH: "🇨🇭",
+};
 
 async function getWorld50m() {
   return d3.json(
@@ -78,12 +110,14 @@ async function main() {
 
   // TODO: compute size from current viewport
   const width = 960;
-  const mapHeight = 720;
+  const heightMap = 720;
+  const heightTimeline = 640;
+  const height = heightMap + heightTimeline;
 
   const projection = d3
     .geoAzimuthalEqualArea()
     .rotate([-10.0, -54.0])
-    .translate([width / 2, mapHeight / 2])
+    .translate([width / 2, heightMap / 2])
     .scale(1000)
     .precision(0.1);
 
@@ -116,27 +150,46 @@ async function main() {
     }
   );
 
-  // MAP
-
   const svg = d3
     .create("svg")
     .attr("width", width)
-    .attr("height", mapHeight)
-    .attr("viewBox", `0 0 ${width} ${mapHeight}`);
+    .attr("height", height)
+    .attr("viewBox", `0 0 ${width} ${height}`);
+
+  const defs = svg.append("defs");
+
+  defs
+    .append("clipPath")
+    .attr("id", "clip_map")
+    .append("rect")
+    .attr("width", width)
+    .attr("height", heightMap)
+    .attr("x", 0)
+    .attr("y", 0);
 
   svg
+    .append("rect")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("fill", "#fff");
+
+  // MAP
+
+  const groupMap = svg.append("g").attr("clip-path", "url(#clip_map)");
+
+  groupMap
     .append("path")
     .attr("d", path(graticule))
     .attr("stroke", "#ddd")
     .attr("fill", "none");
 
-  svg
+  groupMap
     .append("path")
     .attr("d", path(countries))
     .attr("stroke", "#fff")
     .attr("fill", "#ccc");
 
-  const $schengenCountries = svg
+  const $schengenCountries = groupMap
     .selectAll("path.country-schengen")
     .data(schengenCountries.features);
 
@@ -158,7 +211,7 @@ async function main() {
       })
     );
 
-  const $activeCountries = svg
+  const $activeCountries = groupMap
     .selectAll("path.country-active")
     .data(activeCountries.features);
 
@@ -204,45 +257,92 @@ async function main() {
 
   // TIMELINE
 
-  const timelineHeight = 480;
+  const groupTimeline = svg
+    .append("g")
+    .attr("transform", `translate(0, ${heightMap})`);
 
-  const countryColors = d3.scaleOrdinal(d3.schemeCategory10);
+  const scaleCountryColors = d3.scaleOrdinal(SCHENGEN_COUNTRY_NAMES, [
+    "#EF3340",
+    "#FFCD00",
+    "#11457E",
+    "#11457E",
+    "#C8102E",
+    "#000000",
+    "#002F6C",
+    "#ED2939",
+    "#FFCC00",
+    "#001489",
+    "#477050",
+    "#DC1E35",
+    "#008C45",
+    "#A4343A",
+    "#003DA5",
+    "#FFB81C",
+    "#51ADDA",
+    "#000000",
+    "#C8102E",
+    "#00205B",
+    "#DC143C",
+    "#046A38",
+    "#0B4EA2",
+    "#FF0000",
+    "#F1BF00",
+    "#006AA7",
+    "#DA291C",
+  ]);
 
-  const countryBands = d3
-    .scaleBand(SCHENGEN_COUNTRY_NAMES, [0, timelineHeight])
+  const marginBars = { top: 20, right: 20, bottom: 20, left: 120 };
+
+  const widthBars = width - (marginBars.left + marginBars.right);
+  const heightBars = heightTimeline - (marginBars.top + marginBars.bottom);
+
+  const groupBars = groupTimeline
+    .append("g")
+    .attr("transform", `translate(${marginBars.left}, ${marginBars.top})`);
+
+  const scaleCountryBands = d3
+    .scaleBand(SCHENGEN_COUNTRY_NAMES, [0, heightBars])
     .padding(0.1);
 
-  const plotTimeline = Plot.plot({
-    marks: [
-      Plot.barX(schengenTempReintros, {
-        y: (d) => d.country.name,
-        x1: (d) => d.duration.start.toJSDate(),
-        x2: (d) => d.duration.end.toJSDate(),
-        fill: (d) => countryColors(d.country.name),
-        stroke: "#fff",
-      }),
-      Plot.tip(
-        schengenTempReintros,
-        Plot.pointer({
-          y: (d) => d.country.name,
-          x1: (d) => d.duration.start.toJSDate(),
-          x2: (d) => d.duration.start.toJSDate(),
-          title: (d) => `${d.country.name}\n${d.reason}`,
-        })
-      ),
-    ],
-    height: 480,
-    width,
-    x: { grid: true },
-    y: {
-      domain: countryBands.domain(),
-      label: null,
-      tickFormat: null,
-      tickSize: null,
-    },
-  });
+  const scaleTime = d3
+    .scaleTime()
+    .domain([new Date(2006, 0, 1), new Date(2024, 6, 1)])
+    .range([0, widthBars]);
 
-  document.body.append(plotTimeline);
+  groupBars
+    .append("g")
+    .attr("transform", `translate(0, ${heightBars})`)
+    .call(d3.axisBottom(scaleTime));
+
+  groupBars.append("g").call(
+    d3
+      .axisLeft(scaleCountryBands)
+      .tickFormat((d) => {
+        const flag = SCHENGEN_COUNTRY_FLAGS[SCHENGEN_COUNTRY_CODES[d]];
+        return `${d} ${flag}`;
+      })
+      .tickSize(0)
+  );
+
+  const $schengenBars = groupBars
+    .selectAll("rect.bar")
+    .data(schengenTempReintros);
+
+  $schengenBars
+    .enter()
+    .append("rect")
+    .attr("class", "bar")
+    .attr("x", (d) => scaleTime(d.duration.start.toJSDate()))
+    .attr("y", (d) => scaleCountryBands(d.country.name))
+    .attr(
+      "width",
+      (d) =>
+        scaleTime(d.duration.end.toJSDate()) -
+        scaleTime(d.duration.start.toJSDate())
+    )
+    .attr("height", scaleCountryBands.bandwidth())
+    .attr("fill", (d) => scaleCountryColors(d.country.name))
+    .attr("stroke", "#fff");
 }
 
 main();
