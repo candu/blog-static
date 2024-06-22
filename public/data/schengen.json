@@ -1,5 +1,70 @@
 [
   {
+    "id": 440,
+    "country": {
+      "name": "Austria",
+      "code": "AT"
+    },
+    "durations": {
+      "raw": "03/06/2024-15/10/2024",
+      "start": "2024-06-03T00:00:00+02:00",
+      "end": "2024-10-15T00:00:00+02:00"
+    },
+    "reason": "The irregular migration, migrant smuggling activities, and organised crime, as well as the strain on the asylum reception system, Russia's aggression in Ukraine, espionage, cyber fraud, and the security situation exacerbated by terrorist groups, particularly in the Middle East; borders with Slovakia and the Czech Republic."
+  },
+  {
+    "id": 439,
+    "country": {
+      "name": "Germany",
+      "code": "DE"
+    },
+    "durations": {
+      "raw": "16/06/2024-15/12/2024",
+      "start": "2024-06-16T00:00:00+02:00",
+      "end": "2024-12-15T00:00:00+01:00"
+    },
+    "reason": "The irregular migration and migrant smuggling activities linked to the developing situation and living conditions in migrants' countries of origin, as well as the strain on the asylum reception system, Russia's aggression in Ukraine, and the security situation exacerbated by terrorist groups, particularly in the Middle East; borders with the Republic of Poland, Switzerland, and the Czech Republic."
+  },
+  {
+    "id": 438,
+    "country": {
+      "name": "Italy",
+      "code": "IT"
+    },
+    "durations": {
+      "raw": "05/06/2024-18/06/2024",
+      "start": "2024-06-05T00:00:00+02:00",
+      "end": "2024-06-18T00:00:00+02:00"
+    },
+    "reason": "G7 summit in Brindisi: risk of terrorist and violent activity, as well as disruption of public order and security; all internal borders (land, air, and sea)."
+  },
+  {
+    "id": 437,
+    "country": {
+      "name": "Slovenia",
+      "code": "SI"
+    },
+    "durations": {
+      "raw": "22/06/2024-21/12/2024",
+      "start": "2024-06-22T00:00:00+02:00",
+      "end": "2024-12-21T00:00:00+01:00"
+    },
+    "reason": "Risks associated with the global security situation (increased instability in the Middle East, Russia's aggression in Ukraine, organised crime, and general terrorist threats), as well as UEFA EURO 2024 and the Olympic Games; internal borders with the Republic of Croatia and Hungary."
+  },
+  {
+    "id": 436,
+    "country": {
+      "name": "Italy",
+      "code": "IT"
+    },
+    "durations": {
+      "raw": "19/06/2024-18/12/2024",
+      "start": "2024-06-19T00:00:00+02:00",
+      "end": "2024-12-18T00:00:00+01:00"
+    },
+    "reason": "Risk of terrorist activity, connected to the turmoil in the Middle East and the possible risk of terrorist infiltration in irregular migration flows, as well as the risk of violence connected to the continuation of the war in Ukraine and Italy\u2019s G7 Presidency."
+  },
+  {
     "id": 434,
     "country": {
       "name": "Austria",
