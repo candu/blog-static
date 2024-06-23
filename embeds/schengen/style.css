@@ -2,17 +2,6 @@
   font-size: 14px;
 }
 
-.country-schengen {
-  stroke: "#3863FF";
-  fill: "#001489";
-}
-
-.country-active {
-  stroke: "#f31";
-  stroke-width: 1.5;
-  fill: "#600";
-}
-
 .timeline-overlay {
   cursor: pointer;
 }

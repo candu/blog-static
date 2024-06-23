@@ -280,7 +280,7 @@ class VisualisationController {
     const activeCountryNames = this.getActiveCountryNames();
 
     const schengenCountriesData = schengenCountries.features.map((d) => {
-      const isActive = this.getActiveCountryNames().includes(d.properties.name);
+      const isActive = activeCountryNames.includes(d.properties.name);
 
       const properties = {
         ...d.properties,
@@ -297,9 +297,13 @@ class VisualisationController {
       .selectAll("path.country-schengen")
       .data(schengenCountriesData, (d) => d.properties.name);
 
-    $schengenCountries.enter().append("path").attr("class", "country-schengen");
+    $schengenCountries.exit().remove();
 
     $schengenCountries
+      .enter()
+      .append("path")
+      .attr("class", "country-schengen")
+      .merge($schengenCountries)
       .attr("d", (d) => this.pathMap(d))
       .attr("stroke", (d) => (d.properties.isActive ? "#f31" : "#3863FF"))
       .attr("fill", (d) => (d.properties.isActive ? "#600" : "#001489"))
@@ -357,9 +361,13 @@ class VisualisationController {
       .selectAll("rect.timeline-bar")
       .data(schengenBarsData, (d) => d.id);
 
-    $schengenBars.enter().append("rect").attr("class", "timeline-bar");
+    $schengenBars.exit().remove();
 
     $schengenBars
+      .enter()
+      .append("rect")
+      .attr("class", "timeline-bar")
+      .merge($schengenBars)
       .attr("x", (d) => this.scaleTime(d.duration.start.toJSDate()))
       .attr("y", (d) => this.scaleCountryBands(d.country.name))
       .attr(
