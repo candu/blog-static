@@ -176,7 +176,7 @@ class VisualisationController {
       .geoAzimuthalEqualArea()
       .rotate([-10.0, -54.0])
       .translate([this.width / 2, this.heightMap / 2])
-      .scale(1000)
+      .scale(750)
       .precision(0.1);
 
     const graticule = d3.geoGraticule10();
@@ -407,9 +407,9 @@ async function main() {
   ]);
 
   const controller = new VisualisationController({
-    width: 960,
-    heightMap: 720,
-    heightTimeline: 640,
+    width: 720,
+    heightMap: 540,
+    heightTimeline: 480,
     schengenTempReintros,
     world,
   });
