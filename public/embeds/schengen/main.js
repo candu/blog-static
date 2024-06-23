@@ -179,75 +179,130 @@ class VisualisationController {
       .scale(1000)
       .precision(0.1);
 
-    const path = d3.geoPath(projection);
-
     const graticule = d3.geoGraticule10();
 
-    const countries = feature(this.world, this.world.objects.countries);
-
-    const schengenCountries = filterFeatureCollection(
-      countries,
-      ({ properties }) => {
-        return SCHENGEN_COUNTRY_NAMES.includes(properties.name);
-      }
-    );
+    this.pathMap = d3.geoPath(projection);
+    this.featureCountries = feature(this.world, this.world.objects.countries);
 
     this.$groupMap
       .append("path")
-      .attr("d", path(graticule))
+      .attr("d", this.pathMap(graticule))
       .attr("stroke", "#ddd")
       .attr("fill", "none");
 
     this.$groupMap
       .append("path")
-      .attr("d", path(countries))
+      .attr("d", this.pathMap(this.featureCountries))
       .attr("stroke", "#fff")
       .attr("fill", "#ccc");
 
-    const $schengenCountries = this.$groupMap
-      .selectAll("path.country-schengen")
-      .data(schengenCountries.features);
+    this.$selectionText = this.$groupMap
+      .append("text")
+      .attr("x", 10)
+      .attr("y", 20)
+      .attr("fill", "#000")
+      .attr("font-size", 18)
+      .attr("font-family", "sans-serif");
 
-    $schengenCountries
-      .enter()
-      .append("path")
-      .attr("class", "country-schengen")
-      .attr("d", (d) => path(d))
-      .attr("stroke", "#3863FF")
-      .attr("fill", "#001489")
-      .attr("data-tippy-content", (d) => {
-        return `<strong>${d.properties.name}</strong>`;
-      })
-      .call((s) =>
-        tippy(s.nodes(), {
-          allowHTML: true,
-          followCursor: true,
-          plugins: [followCursor],
+    this.updateMap();
+  }
+
+  renderTimeline() {
+    const marginBars = { top: 20, right: 20, bottom: 20, left: 120 };
+
+    const widthBars = this.width - (marginBars.left + marginBars.right);
+    const heightBars =
+      this.heightTimeline - (marginBars.top + marginBars.bottom);
+
+    this.scaleCountryBands = d3
+      .scaleBand(SCHENGEN_COUNTRY_NAMES, [0, heightBars])
+      .padding(0.1);
+
+    this.scaleTime = d3
+      .scaleTime()
+      .domain([new Date(2006, 0, 1), new Date(2025, 0, 1)])
+      .range([0, widthBars]);
+
+    this.$groupBars = this.$groupTimeline
+      .append("g")
+      .attr("transform", `translate(${marginBars.left}, ${marginBars.top})`);
+
+    this.$groupBars
+      .append("g")
+      .attr("transform", `translate(0, ${heightBars})`)
+      .call(d3.axisBottom(this.scaleTime));
+
+    this.$groupBars.append("g").call(
+      d3
+        .axisLeft(this.scaleCountryBands)
+        .tickFormat((d) => {
+          const flag = SCHENGEN_COUNTRY_FLAGS[SCHENGEN_COUNTRY_CODES[d]];
+          return `${d} ${flag}`;
         })
-      );
+        .tickSize(0)
+    );
 
-    const activeTempReintros = this.getActiveTempReintros();
+    this.$selectionDateLine = this.$groupBars
+      .append("line")
+      .attr("y1", 0)
+      .attr("y2", heightBars)
+      .attr("stroke", "#600")
+      .attr("stroke-width", 2)
+      .attr("stroke-dasharray", "4");
 
-    const activeCountryNames = this.getActiveCountryNames();
-    const activeCountries = filterFeatureCollection(
-      schengenCountries,
+    this.$groupBars
+      .append("rect")
+      .attr("class", "timeline-overlay")
+      .attr("width", widthBars)
+      .attr("height", heightBars)
+      .attr("fill", "transparent")
+      .on("click", (event) => {
+        const [x] = d3.pointer(event);
+        const date = this.scaleTime.invert(x);
+        this.selection.date = date;
+
+        this.updateMap();
+        this.updateTimeline();
+      });
+
+    this.updateTimeline();
+  }
+
+  updateMap() {
+    const schengenCountries = filterFeatureCollection(
+      this.featureCountries,
       ({ properties }) => {
-        return activeCountryNames.includes(properties.name);
+        return SCHENGEN_COUNTRY_NAMES.includes(properties.name);
       }
     );
 
-    const $activeCountries = this.$groupMap
-      .selectAll("path.country-active")
-      .data(activeCountries.features);
+    const activeTempReintros = this.getActiveTempReintros();
+    const activeCountryNames = this.getActiveCountryNames();
 
-    $activeCountries
-      .enter()
-      .append("path")
-      .attr("class", "country-active")
-      .attr("d", (d) => path(d))
-      .attr("stroke", "#f31")
-      .attr("stroke-width", 1.5)
-      .attr("fill", "#600")
+    const schengenCountriesData = schengenCountries.features.map((d) => {
+      const isActive = this.getActiveCountryNames().includes(d.properties.name);
+
+      const properties = {
+        ...d.properties,
+        isActive,
+      };
+
+      return {
+        ...d,
+        properties,
+      };
+    });
+
+    const $schengenCountries = this.$groupMap
+      .selectAll("path.country-schengen")
+      .data(schengenCountriesData, (d) => d.properties.name);
+
+    $schengenCountries.enter().append("path").attr("class", "country-schengen");
+
+    $schengenCountries
+      .attr("d", (d) => this.pathMap(d))
+      .attr("stroke", (d) => (d.properties.isActive ? "#f31" : "#3863FF"))
+      .attr("fill", (d) => (d.properties.isActive ? "#600" : "#001489"))
       .attr("data-tippy-content", (d) => {
         const activeTempReintrosForCountry = activeTempReintros.filter(
           ({ country }) => country.name === d.properties.name
@@ -277,91 +332,55 @@ class VisualisationController {
           plugins: [followCursor],
         })
       );
+
+    this.$selectionText.text(
+      `Temporary reintroductions active on ${this.selection.date.toLocaleDateString()}`
+    );
   }
 
-  renderTimeline() {
-    const marginBars = { top: 20, right: 20, bottom: 20, left: 120 };
+  updateTimeline() {
+    const activeTempReintros = this.getActiveTempReintros();
+    const activeCountryNames = this.getActiveCountryNames();
 
-    const widthBars = this.width - (marginBars.left + marginBars.right);
-    const heightBars =
-      this.heightTimeline - (marginBars.top + marginBars.bottom);
+    const schengenBarsData = this.schengenTempReintros.map((d) => {
+      const isActive = activeTempReintros.includes(d);
+      const countryIsActive = activeCountryNames.includes(d.country.name);
 
-    const scaleCountryColors = d3.scaleOrdinal(SCHENGEN_COUNTRY_NAMES, [
-      "#EF3340",
-      "#FFCD00",
-      "#11457E",
-      "#C8102E",
-      "#000000",
-      "#002F6C",
-      "#ED2939",
-      "#FFCC00",
-      "#001489",
-      "#477050",
-      "#DC1E35",
-      "#008C45",
-      "#A4343A",
-      "#003DA5",
-      "#FFB81C",
-      "#51ADDA",
-      "#000000",
-      "#C8102E",
-      "#00205B",
-      "#DC143C",
-      "#046A38",
-      "#0B4EA2",
-      "#FF0000",
-      "#F1BF00",
-      "#006AA7",
-      "#DA291C",
-    ]);
+      return {
+        ...d,
+        isActive,
+        countryIsActive,
+      };
+    });
 
-    const scaleCountryBands = d3
-      .scaleBand(SCHENGEN_COUNTRY_NAMES, [0, heightBars])
-      .padding(0.1);
+    const $schengenBars = this.$groupBars
+      .selectAll("rect.timeline-bar")
+      .data(schengenBarsData, (d) => d.id);
 
-    const scaleTime = d3
-      .scaleTime()
-      .domain([new Date(2006, 0, 1), new Date(2025, 0, 1)])
-      .range([0, widthBars]);
-
-    const $groupBars = this.$groupTimeline
-      .append("g")
-      .attr("transform", `translate(${marginBars.left}, ${marginBars.top})`);
-
-    $groupBars
-      .append("g")
-      .attr("transform", `translate(0, ${heightBars})`)
-      .call(d3.axisBottom(scaleTime));
-
-    $groupBars.append("g").call(
-      d3
-        .axisLeft(scaleCountryBands)
-        .tickFormat((d) => {
-          const flag = SCHENGEN_COUNTRY_FLAGS[SCHENGEN_COUNTRY_CODES[d]];
-          return `${d} ${flag}`;
-        })
-        .tickSize(0)
-    );
-
-    const $schengenBars = $groupBars
-      .selectAll("rect.bar")
-      .data(this.schengenTempReintros);
+    $schengenBars.enter().append("rect").attr("class", "timeline-bar");
 
     $schengenBars
-      .enter()
-      .append("rect")
-      .attr("class", "bar")
-      .attr("x", (d) => scaleTime(d.duration.start.toJSDate()))
-      .attr("y", (d) => scaleCountryBands(d.country.name))
+      .attr("x", (d) => this.scaleTime(d.duration.start.toJSDate()))
+      .attr("y", (d) => this.scaleCountryBands(d.country.name))
       .attr(
         "width",
         (d) =>
-          scaleTime(d.duration.end.toJSDate()) -
-          scaleTime(d.duration.start.toJSDate())
+          this.scaleTime(d.duration.end.toJSDate()) -
+          this.scaleTime(d.duration.start.toJSDate())
       )
-      .attr("height", scaleCountryBands.bandwidth())
-      .attr("fill", (d) => scaleCountryColors(d.country.name))
+      .attr("height", this.scaleCountryBands.bandwidth())
+      .attr("fill", (d) => {
+        if (d.isActive) {
+          return "#f31";
+        }
+
+        return "#ccc";
+      })
       .attr("stroke", "#fff");
+
+    this.$selectionDateLine
+      .attr("x1", this.scaleTime(this.selection.date))
+      .attr("x2", this.scaleTime(this.selection.date));
   }
 }
 
