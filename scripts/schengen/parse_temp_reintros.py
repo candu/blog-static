@@ -224,7 +224,7 @@ def parse_records(records_data):
         return [{
             'id': records_data['ids'][0],
             'country': records_data['country'],
-            'durations': records_data['durations'][0],
+            'duration': records_data['durations'][0],
             'reason': records_data['reason']
         }]
 
@@ -235,7 +235,7 @@ def parse_records(records_data):
         records.append({
             'id': id,
             'country': records_data['country'],
-            'durations': [duration],
+            'duration': duration,
             'reason': records_data['reason']
         })
 
