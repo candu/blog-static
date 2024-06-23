@@ -8,7 +8,6 @@ import { feature } from "https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/+esm
 const SCHENGEN_COUNTRY_CODES = {
   Austria: "AT",
   Belgium: "BE",
-  "Czech Republic": "CZ",
   Czechia: "CZ",
   Denmark: "DK",
   Estonia: "EE",
@@ -78,11 +77,15 @@ async function getSchengenTempReintros() {
   const schengenTempReintrosRaw = await d3.json("../../data/schengen.json");
 
   const schengenTempReintros = schengenTempReintrosRaw.map(
-    ({ duration, ...rest }) => {
+    ({ country, duration, ...rest }) => {
+      const { name: nameRaw, code } = country;
+      const name = nameRaw === "Czech Republic" ? "Czechia" : nameRaw;
+
       const { raw, start: startStr, end: endStr } = duration;
       const start = DateTime.fromISO(startStr);
       const end = DateTime.fromISO(endStr);
       return {
+        country: { name, code },
         duration: { raw, start, end },
         ...rest,
       };
@@ -286,7 +289,6 @@ class VisualisationController {
     const scaleCountryColors = d3.scaleOrdinal(SCHENGEN_COUNTRY_NAMES, [
       "#EF3340",
       "#FFCD00",
-      "#11457E",
       "#11457E",
       "#C8102E",
       "#000000",
