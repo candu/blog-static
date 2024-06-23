@@ -329,13 +329,17 @@ class VisualisationController {
           <p>${reason}</p>
         `;
       })
-      .call((s) =>
+      .call((s) => {
+        s.nodes().forEach((node) => {
+          node._tippy && node._tippy.destroy();
+        });
+
         tippy(s.nodes(), {
           allowHTML: true,
           followCursor: true,
           plugins: [followCursor],
-        })
-      );
+        });
+      });
 
     this.$selectionText.text(
       `Temporary reintroductions active on ${this.selection.date.toLocaleDateString()}`
