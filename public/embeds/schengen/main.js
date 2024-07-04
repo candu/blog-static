@@ -1,4 +1,5 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+import _ from "https://cdn.jsdelivr.net/npm/lodash@4.17.21/+esm";
 import { DateTime } from "https://cdn.jsdelivr.net/npm/luxon@3.4.4/+esm";
 import tippy, {
   followCursor,
@@ -107,19 +108,21 @@ class VisualisationController {
     date: new Date(2021, 6, 1),
   };
 
-  // TODO: compute size from current viewport
-  constructor({
-    width,
-    heightMap,
-    heightTimeline,
-    schengenTempReintros,
-    world,
-  }) {
-    this.width = width;
-    this.heightMap = heightMap;
-    this.heightTimeline = heightTimeline;
+  constructor({ $element, schengenTempReintros, world }) {
+    this.$element = $element;
     this.schengenTempReintros = schengenTempReintros;
     this.world = world;
+
+    this.recalculateDimensions();
+
+    this.handleResize = _.debounce(this.resize.bind(this), 500);
+  }
+
+  recalculateDimensions() {
+    this.width = Math.max(this.$element.clientWidth - 20, 480);
+
+    this.heightMap = (this.width * 3) / 4;
+    this.heightTimeline = (this.width * 2) / 3;
   }
 
   getActiveTempReintros() {
@@ -137,7 +140,21 @@ class VisualisationController {
     );
   }
 
-  init($element) {
+  resize() {
+    this.recalculateDimensions();
+    this.destroy();
+    this.init();
+  }
+
+  destroy() {
+    this.$element.removeChild(this.$svg.node());
+  }
+
+  init() {
+    window.onresize = () => {
+      this.handleResize();
+    };
+
     const height = this.heightMap + this.heightTimeline;
 
     this.$svg = d3
@@ -168,7 +185,10 @@ class VisualisationController {
       .append("g")
       .attr("transform", `translate(0, ${this.heightMap})`);
 
-    $element.appendChild(this.$svg.node());
+    this.$element.appendChild(this.$svg.node());
+
+    this.renderMap();
+    this.renderTimeline();
   }
 
   renderMap() {
@@ -176,7 +196,7 @@ class VisualisationController {
       .geoAzimuthalEqualArea()
       .rotate([-10.0, -54.0])
       .translate([this.width / 2, this.heightMap / 2])
-      .scale(750)
+      .scale(this.width)
       .precision(0.1);
 
     const graticule = d3.geoGraticule10();
@@ -411,17 +431,12 @@ async function main() {
   ]);
 
   const controller = new VisualisationController({
-    width: 720,
-    heightMap: 540,
-    heightTimeline: 480,
+    $element: document.body,
     schengenTempReintros,
     world,
   });
 
-  controller.init(document.body);
-
-  controller.renderMap();
-  controller.renderTimeline();
+  controller.init();
 }
 
 main();
