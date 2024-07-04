@@ -242,7 +242,11 @@ class VisualisationController {
         .tickSize(0)
     );
 
-    this.$selectionDateLine = this.$groupBars
+    const $groupTimelineControls = this.$groupTimeline
+      .append("g")
+      .attr("transform", `translate(${marginBars.left}, ${marginBars.top})`);
+
+    this.$selectionDateLine = $groupTimelineControls
       .append("line")
       .attr("y1", 0)
       .attr("y2", heightBars)
@@ -250,7 +254,7 @@ class VisualisationController {
       .attr("stroke-width", 2)
       .attr("stroke-dasharray", "4");
 
-    this.$groupBars
+    $groupTimelineControls
       .append("rect")
       .attr("class", "timeline-overlay")
       .attr("width", widthBars)
