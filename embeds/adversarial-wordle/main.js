@@ -104,13 +104,13 @@ class Game {
   getLetterStates() {
     const letters = this._getLetters();
 
-    return letters.map((wordLetters) => {
-      return wordLetters.map((letter, index) => {
+    return letters.map((wordLetters, i) => {
+      return wordLetters.map((letter, j) => {
         if (letter === null) {
           return null;
-        } else if (this.answer === null) {
+        } else if (this.answer === null || i >= this.guesses.length) {
           return { letter, state: LetterState.ABSENT };
-        } else if (letter === this.answer[index]) {
+        } else if (letter === this.answer[j]) {
           return { letter, state: LetterState.CORRECT };
         } else if (this.answer.includes(letter)) {
           return { letter, state: LetterState.PRESENT };
