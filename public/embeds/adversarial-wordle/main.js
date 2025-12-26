@@ -20,9 +20,9 @@ class Game {
 
   state = GameState.IN_PROGRESS;
 
-  constructor(answers, guesses) {
-    this.answers = answers;
-    this.guesses = guesses;
+  constructor(validAnswers, validGuesses) {
+    this.validAnswers = validAnswers;
+    this.validGuesses = validGuesses;
   }
 
   _updateAdversarialAnswer() {
@@ -58,6 +58,13 @@ class Game {
     }
 
     const guess = this.currentGuess;
+
+    if (!this.validGuesses.includes(guess)) {
+      // TODO: better error handling
+      alert("Not a valid guess: " + guess);
+      return;
+    }
+
     this.currentGuess = "";
 
     this.guesses.push(guess);
@@ -130,28 +137,6 @@ class GameView {
   constructor(game, $container) {
     this.game = game;
     this.$container = $container;
-
-    this.onKeyClick = this._handleKeyClick.bind(this);
-  }
-
-  _handleKeyClick(evt) {
-    const keyCode = evt.target.dataset.key;
-    console.log("Key clicked:", keyCode);
-
-    if (keyCode === "Enter") {
-      this.game.submitCurrentGuess();
-    } else if (keyCode === "Backspace") {
-      this.game.deleteLetter();
-    } else {
-      this.game.enterLetter(keyCode);
-    }
-  }
-
-  init() {
-    const $keys = this.$container.querySelectorAll(".key");
-    for (const $key of $keys) {
-      $key.addEventListener("click", this.onKeyClick);
-    }
   }
 
   _renderFinalScreen() {
@@ -173,10 +158,10 @@ class GameView {
         const $tile = $tiles[j];
         const letterState = wordLetterStates[j];
         if (letterState === null) {
-          $tile.textContent = "";
+          $tile.innerText = "";
           $tile.className = "tile";
         } else {
-          $tile.textContent = letterState.letter.toUpperCase();
+          $tile.innerText = letterState.letter.toUpperCase();
           $tile.className = `tile ${letterState.state}`;
         }
       }
@@ -205,35 +190,44 @@ class GameView {
       this._renderKeyboard();
     }
   }
-
-  destroy() {
-    const $keys = this.$container.querySelectorAll(".key");
-    for (const $key of $keys) {
-      $key.removeEventListener("click", this.onKeyClick);
-    }
-  }
 }
 
 class GameController {
   gameView = null;
 
-  constructor(answers, guesses, $container) {
-    this.answers = answers;
-    this.guesses = guesses;
+  constructor(validAnswers, validGuesses, $container) {
+    this.validAnswers = validAnswers;
+    this.validGuesses = validGuesses;
     this.$container = $container;
+
+    this.onKeyClick = this._handleKeyClick.bind(this);
 
     this.newGame();
   }
 
-  newGame() {
-    if (this.gameView !== null) {
-      this.gameView.destroy();
+  _handleKeyClick(evt) {
+    const keyCode = evt.target.dataset.key;
+    console.log("Key clicked:", keyCode);
+
+    if (keyCode === "Enter") {
+      this.submitCurrentGuess();
+    } else if (keyCode === "Backspace") {
+      this.deleteLetter();
+    } else {
+      this.enterLetter(keyCode);
     }
+  }
 
-    this.game = new Game(this.answers, this.guesses);
+  init() {
+    const $keys = this.$container.querySelectorAll(".key");
+    for (const $key of $keys) {
+      $key.addEventListener("click", this.onKeyClick);
+    }
+  }
+
+  newGame() {
+    this.game = new Game(this.validAnswers, this.validGuesses);
     this.gameView = new GameView(this.game, this.$container);
-
-    this.gameView.init();
     this.gameView.render();
   }
 
@@ -251,6 +245,13 @@ class GameController {
     this.game.submitCurrentGuess();
     this.gameView.render();
   }
+
+  destroy() {
+    const $keys = this.$container.querySelectorAll(".key");
+    for (const $key of $keys) {
+      $key.removeEventListener("click", this.onKeyClick);
+    }
+  }
 }
 
 async function getWordList(url) {
@@ -263,16 +264,17 @@ async function getWordList(url) {
 }
 
 async function main() {
-  const [answers, guesses] = await Promise.all([
+  const [validAnswers, validGuesses] = await Promise.all([
     getWordList("../../data/wordle-answers.csv"),
     getWordList("../../data/wordle-guesses.csv"),
   ]);
 
-  console.log("Answers:", answers);
-  console.log("Guesses:", guesses);
+  console.log("Answers:", validAnswers);
+  console.log("Guesses:", validGuesses);
 
   const $container = document.querySelector(".game");
-  const gameController = new GameController(answers, guesses, $container);
+  const gameController = new GameController(validAnswers, validGuesses, $container);
+  gameController.init();
 }
 
 main();
