@@ -1,0 +1,169 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+  background-color: #121213;
+  color: #fff;
+  min-height: 100vh;
+}
+
+.game-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* Header */
+.header {
+  width: 100%;
+  padding: 16px 0;
+  border-bottom: 1px solid #3a3a3c;
+  text-align: center;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Game Board */
+.game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 32px 0;
+  width: 100%;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.row {
+  display: flex;
+  gap: 5px;
+}
+
+.tile {
+  width: 62px;
+  height: 62px;
+  border: 2px solid #3a3a3c;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 32px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: transparent;
+  color: #fff;
+}
+
+.tile.filled {
+  border-color: #565758;
+}
+
+.tile.correct {
+  background-color: #538d4e;
+  border-color: #538d4e;
+}
+
+.tile.present {
+  background-color: #b59f3b;
+  border-color: #b59f3b;
+}
+
+.tile.absent {
+  background-color: #3a3a3c;
+  border-color: #3a3a3c;
+}
+
+/* Keyboard */
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 484px;
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.key {
+  height: 58px;
+  min-width: 43px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background-color: #818384;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  max-width: 43px;
+}
+
+.key:hover {
+  background-color: #a6a6a6;
+}
+
+.key.key-wide {
+  min-width: 65px;
+  max-width: 65px;
+  font-size: 12px;
+}
+
+.key.correct {
+  background-color: #538d4e;
+}
+
+.key.present {
+  background-color: #b59f3b;
+}
+
+.key.absent {
+  background-color: #3a3a3c;
+}
+
+/* Responsive adjustments */
+@media (max-width: 400px) {
+  .tile {
+    width: 52px;
+    height: 52px;
+    font-size: 28px;
+  }
+
+  .key {
+    height: 50px;
+    min-width: 32px;
+    max-width: 32px;
+    font-size: 12px;
+  }
+
+  .key.key-wide {
+    min-width: 52px;
+    max-width: 52px;
+    font-size: 10px;
+  }
+}
