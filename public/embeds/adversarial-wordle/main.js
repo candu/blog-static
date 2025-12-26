@@ -27,7 +27,7 @@ class Game {
 
   _updateAdversarialAnswer() {
     // TODO: implement adversarial answer selection
-    this.answer = "ouija";
+    this.answer = "OUIJA";
   }
 
   isFinished() {
@@ -39,8 +39,12 @@ class Game {
       return;
     }
 
+    if (!/^[a-zA-Z]$/.test(letter)) {
+      return;
+    }
+
     if (this.currentGuess.length < WORD_LENGTH) {
-      this.currentGuess += letter;
+      this.currentGuess += letter.toUpperCase();
     }
   }
 
@@ -93,6 +97,8 @@ class Game {
       return wordLetters.map((letter, index) => {
         if (letter === null) {
           return null;
+        } else if (this.answer === null) {
+          return { letter, state: LetterState.ABSENT };
         } else if (letter === this.answer[index]) {
           return { letter, state: LetterState.CORRECT };
         } else if (this.answer.includes(letter)) {
@@ -124,6 +130,28 @@ class GameView {
   constructor(game, $container) {
     this.game = game;
     this.$container = $container;
+
+    this.onKeyClick = this._handleKeyClick.bind(this);
+  }
+
+  _handleKeyClick(evt) {
+    const keyCode = evt.target.dataset.key;
+    console.log("Key clicked:", keyCode);
+
+    if (keyCode === "Enter") {
+      this.game.submitCurrentGuess();
+    } else if (keyCode === "Backspace") {
+      this.game.deleteLetter();
+    } else {
+      this.game.enterLetter(keyCode);
+    }
+  }
+
+  init() {
+    const $keys = this.$container.querySelectorAll(".key");
+    for (const $key of $keys) {
+      $key.addEventListener("click", this.onKeyClick);
+    }
   }
 
   _renderFinalScreen() {
@@ -177,6 +205,13 @@ class GameView {
       this._renderKeyboard();
     }
   }
+
+  destroy() {
+    const $keys = this.$container.querySelectorAll(".key");
+    for (const $key of $keys) {
+      $key.removeEventListener("click", this.onKeyClick);
+    }
+  }
 }
 
 class GameController {
@@ -191,8 +226,14 @@ class GameController {
   }
 
   newGame() {
+    if (this.gameView !== null) {
+      this.gameView.destroy();
+    }
+
     this.game = new Game(this.answers, this.guesses);
     this.gameView = new GameView(this.game, this.$container);
+
+    this.gameView.init();
     this.gameView.render();
   }
 
@@ -230,7 +271,7 @@ async function main() {
   console.log("Answers:", answers);
   console.log("Guesses:", guesses);
 
-  const $container = document.getElementById("game");
+  const $container = document.querySelector(".game");
   const gameController = new GameController(answers, guesses, $container);
 }
 
