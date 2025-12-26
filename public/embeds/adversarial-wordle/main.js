@@ -23,11 +23,12 @@ class Game {
   constructor(validAnswers, validGuesses) {
     this.validAnswers = validAnswers;
     this.validGuesses = validGuesses;
+    this.answer = this._getAdversarialAnswer();
   }
 
-  _updateAdversarialAnswer() {
+  _getAdversarialAnswer() {
     // TODO: implement adversarial answer selection
-    this.answer = "OUIJA";
+    return "OUIJA";
   }
 
   isFinished() {
@@ -78,7 +79,7 @@ class Game {
     } else if (this.guesses.length >= MAX_GUESSES) {
       this.state = GameState.LOST;
     } else {
-      this._updateAdversarialAnswer();
+      this.answer = this._getAdversarialAnswer();
     }
   }
 
@@ -125,13 +126,17 @@ class Game {
     const absent = new Set();
 
     const letterStates = this.getLetterStates();
-    for (const wordLetterStates of letterStates) {
+    letterStates.forEach((wordLetterStates, i) => {
+      if (i >= this.guesses.length) {
+        return;
+      }
+
       for (const letterState of wordLetterStates) {
         if (letterState !== null && letterState.state === LetterState.ABSENT) {
           absent.add(letterState.letter);
         }
       }
-    }
+    });
 
     return absent;
   }
@@ -177,8 +182,8 @@ class GameView {
 
     const $keys = this.$container.querySelectorAll(".key");
     for (const $key of $keys) {
-      const letter = $key.dataset.letter;
-      if (absentLetters.has(letter)) {
+      const keyCode = $key.dataset.key;
+      if (absentLetters.has(keyCode)) {
         $key.classList.add("absent");
       } else {
         $key.classList.remove("absent");
@@ -187,11 +192,11 @@ class GameView {
   }
 
   render() {
+    this._renderBoard();
+    this._renderKeyboard();
+
     if (this.game.isFinished()) {
       this._renderFinalScreen();
-    } else {
-      this._renderBoard();
-      this._renderKeyboard();
     }
   }
 }
