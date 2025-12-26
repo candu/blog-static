@@ -59,6 +59,10 @@ class Game {
 
     const guess = this.currentGuess;
 
+    if (guess.length !== WORD_LENGTH) {
+      return;
+    }
+
     if (!this.validGuesses.includes(guess)) {
       // TODO: better error handling
       alert("Not a valid guess: " + guess);
@@ -201,6 +205,7 @@ class GameController {
     this.$container = $container;
 
     this.onKeyClick = this._handleKeyClick.bind(this);
+    this.onKeyDown = this._handleKeyDown.bind(this);
 
     this.newGame();
   }
@@ -218,7 +223,22 @@ class GameController {
     }
   }
 
+  _handleKeyDown(evt) {
+    const key = evt.key;
+    console.log("Key pressed:", key);
+
+    if (key === "Enter") {
+      this.submitCurrentGuess();
+    } else if (key === "Backspace") {
+      this.deleteLetter();
+    } else if (/^[a-zA-Z]$/.test(key)) {
+      this.enterLetter(key);
+    }
+  }
+
   init() {
+    document.addEventListener("keydown", this.onKeyDown);
+
     const $keys = this.$container.querySelectorAll(".key");
     for (const $key of $keys) {
       $key.addEventListener("click", this.onKeyClick);
@@ -251,6 +271,8 @@ class GameController {
     for (const $key of $keys) {
       $key.removeEventListener("click", this.onKeyClick);
     }
+
+    document.removeEventListener("keydown", this.onKeyDown);
   }
 }
 
@@ -259,7 +281,7 @@ async function getWordList(url) {
   const text = await response.text();
   return text
     .split("\n")
-    .map((word) => word.trim())
+    .map((word) => word.trim().toUpperCase())
     .filter((word) => word.length > 0);
 }
 
