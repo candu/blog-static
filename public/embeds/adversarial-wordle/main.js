@@ -13,7 +13,114 @@ const LetterState = {
 const WORD_LENGTH = 5;
 const MAX_GUESSES = 6;
 
+const getLetters = (guesses, currentGuess) => {
+  const words = [...guesses, currentGuess];
+  const letters = Array(MAX_GUESSES);
+
+  for (let i = 0; i < MAX_GUESSES; i++) {
+    const wordLetters = Array(WORD_LENGTH).fill(null);
+
+    if (i < words.length) {
+      for (let j = 0; j < words[i].length; j++) {
+        wordLetters[j] = words[i][j];
+      }
+    }
+
+    letters[i] = wordLetters;
+  }
+
+  return letters;
+};
+
+const getLetterStates = (answer, guesses, currentGuess) => {
+  const letters = getLetters(guesses, currentGuess);
+
+  const answerFreqs = {};
+  for (const letter of answer) {
+    answerFreqs[letter] = (answerFreqs[letter] || 0) + 1;
+  }
+
+  return letters.map((wordLetters, i) => {
+    const usedFreqs = {};
+
+    const firstPass = wordLetters.map((letter, j) => {
+      if (letter === null) {
+        return null;
+      }
+
+      if (i >= guesses.length) {
+        return { letter, state: LetterState.ABSENT };
+      }
+
+      if (letter === answer[j]) {
+        usedFreqs[letter] = (usedFreqs[letter] || 0) + 1;
+        return { letter, state: LetterState.CORRECT };
+      }
+
+      return { letter, state: null };
+    });
+
+    return firstPass.map((letterState, j) => {
+      if (letterState === null || letterState.state !== null) {
+        return letterState;
+      }
+
+      const letter = letterState.letter;
+      const usedCount = usedFreqs[letter] || 0;
+      const answerCount = answerFreqs[letter] || 0;
+
+      if (usedCount < answerCount) {
+        usedFreqs[letter] = usedCount + 1;
+        return { letter, state: LetterState.PRESENT };
+      }
+
+      return { letter, state: LetterState.ABSENT };
+    });
+  });
+};
+
+const wordSatisfiesLetterStates = (word, letterStates) => {
+  const wordFreqs = {};
+  for (const letter of word) {
+    wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
+  }
+
+  const requiredFreqs = {};
+
+  for (const wordLetterStates of letterStates) {
+    for (let j = 0; j < WORD_LENGTH; j++) {
+      const letterState = wordLetterStates[j];
+      if (letterState === null) {
+        continue;
+      }
+
+      const letter = letterState.letter;
+      const state = letterState.state;
+
+      if (state === LetterState.CORRECT) {
+        if (word[j] !== letter) {
+          return false;
+        }
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+      } else if (state === LetterState.PRESENT) {
+        if (word[j] === letter) {
+          return false;
+        }
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+      } else if (state === LetterState.ABSENT) {
+        const requiredCount = requiredFreqs[letter] || 0;
+        if (wordFreqs[letter] > requiredCount) {
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+};
+
 class Game {
+  answer = "";
   guesses = [];
   currentGuess = "";
   state = GameState.IN_PROGRESS;
@@ -24,9 +131,67 @@ class Game {
     this.answer = this._getAdversarialAnswer();
   }
 
+  _getValidNextAnswers() {
+    const letterStates = this.getLetterStates();
+    return this.validAnswers.filter((word) => wordSatisfiesLetterStates(word, letterStates));
+  }
+
+  _getValidNextGuesses() {
+    const letterStates = this.getLetterStates();
+    return this.validGuesses.filter((word) => wordSatisfiesLetterStates(word, letterStates));
+  }
+
+  _getValidRemainingAnswers(answer, guess) {
+    const letterStates = getLetterStates(answer, this.guesses.concat([guess]), "");
+    return this.validAnswers.filter((word) => wordSatisfiesLetterStates(word, letterStates));
+  }
+
+  _getExpectedAnswerScore(answer, validNextGuesses) {
+    let expectedScore = 0;
+    let totalWeight = 0;
+
+    for (const guess of validNextGuesses) {
+      const S = this._getValidRemainingAnswers(answer, guess);
+      // console.log("Answer:", answer, "Guess:", guess, "Remaining:", S.length);
+      const score = 1 / (1 + Math.log2(1 + S.length));
+      const weight = score ** 2;
+
+      expectedScore += score * weight;
+      totalWeight += weight;
+    }
+
+    return expectedScore / totalWeight;
+  }
+
+  /*
+   * We use a heuristic approach to select the adversarial answer.
+   *
+   * The score of a guess G is `f(G) = 1 / log2(1 + |S|))` where S is the set of possible
+   * answers remaining after the guess.
+   *
+   * Assume the player is more likely to guess words with a higher score, in proportion
+   * to `f(G) ** 2`.
+   *
+   * The adversarial answer is the one that minimizes the expected score of the player's
+   * next guess.
+   */
   _getAdversarialAnswer() {
-    // TODO: implement adversarial answer selection
-    return "ABATE";
+    const validNextAnswers = this._getValidNextAnswers();
+    const validNextGuesses = this._getValidNextGuesses();
+
+    let minAnswer = null;
+    let minScore = Infinity;
+
+    for (const answer of validNextAnswers) {
+      const score = this._getExpectedAnswerScore(answer, validNextGuesses);
+      console.log("Answer:", answer, "Score:", score.toFixed(4));
+      if (score < minScore) {
+        minAnswer = answer;
+        minScore = score;
+      }
+    }
+
+    return minAnswer;
   }
 
   isFinished() {
@@ -81,70 +246,8 @@ class Game {
     }
   }
 
-  _getLetters() {
-    const words = [...this.guesses, this.currentGuess];
-    const letters = Array(MAX_GUESSES);
-
-    for (let i = 0; i < MAX_GUESSES; i++) {
-      const wordLetters = Array(WORD_LENGTH).fill(null);
-
-      if (i < words.length) {
-        for (let j = 0; j < words[i].length; j++) {
-          wordLetters[j] = words[i][j];
-        }
-      }
-
-      letters[i] = wordLetters;
-    }
-
-    return letters;
-  }
-
   getLetterStates() {
-    const letters = this._getLetters();
-
-    const answerFreqs = {};
-    for (const letter of this.answer) {
-      answerFreqs[letter] = (answerFreqs[letter] || 0) + 1;
-    }
-
-    return letters.map((wordLetters, i) => {
-      const usedFreqs = {};
-
-      const firstPass = wordLetters.map((letter, j) => {
-        if (letter === null) {
-          return null;
-        }
-
-        if (i >= this.guesses.length) {
-          return { letter, state: LetterState.ABSENT };
-        }
-
-        if (letter === this.answer[j]) {
-          usedFreqs[letter] = (usedFreqs[letter] || 0) + 1;
-          return { letter, state: LetterState.CORRECT };
-        }
-
-        return { letter, state: null };
-      });
-
-      return firstPass.map((letterState, j) => {
-        if (letterState === null || letterState.state !== null) {
-          return letterState;
-        }
-
-        const letter = letterState.letter;
-        const usedCount = usedFreqs[letter] || 0;
-        const answerCount = answerFreqs[letter] || 0;
-
-        if (usedCount < answerCount) {
-          usedFreqs[letter] = usedCount + 1;
-          return { letter, state: LetterState.PRESENT };
-        }
-
-        return { letter, state: LetterState.ABSENT };
-      });
-    });
+    return getLetterStates(this.answer, this.guesses, this.currentGuess);
   }
 
   absentLetters() {
