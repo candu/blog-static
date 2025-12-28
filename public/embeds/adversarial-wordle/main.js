@@ -124,8 +124,6 @@ class GameState {
       throw new Error(`invalid answer ${answer}: wrong length`);
     }
 
-    // TODO: validate against valid answers
-
     return new GameState(answer, [...this.guesses]);
   }
 
@@ -142,6 +140,10 @@ class GameState {
 
     return new GameState(this.answer, [...this.guesses, guess]);
   }
+}
+
+class AdversarialAnswer {
+  static get() {}
 }
 
 class Game {
@@ -189,6 +191,10 @@ class Game {
     const guess = this.currentGuess;
 
     try {
+      if (!this.validGuesses.includes(guess)) {
+        throw new Error(`invalid guess ${guess}: not in word list`);
+      }
+
       this.state = this.state.withGuess(guess);
 
       if (!this.isFinished()) {
