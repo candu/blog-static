@@ -1,4 +1,4 @@
-const GameState = {
+const GameStatus = {
   IN_PROGRESS: "in_progress",
   WON: "won",
   LOST: "lost",
@@ -13,28 +13,249 @@ const LetterState = {
 const WORD_LENGTH = 5;
 const MAX_GUESSES = 6;
 
-class Game {
-  guesses = [];
-  currentGuess = "";
-  state = GameState.IN_PROGRESS;
+class LetterStateUtils {
+  static getLetterStates(answer, word) {
+    const letterStates = Array(WORD_LENGTH).fill(null);
 
+    const answerFreqs = {};
+    for (const letter of answer) {
+      answerFreqs[letter] = (answerFreqs[letter] || 0) + 1;
+    }
+
+    const n = Math.min(WORD_LENGTH, word.length);
+    const usedFreqs = {};
+
+    // first pass: correct
+    for (let j = 0; j < n; j++) {
+      const letter = word[j];
+      if (letter === answer[j]) {
+        usedFreqs[letter] = (usedFreqs[letter] || 0) + 1;
+        letterStates[j] = { letter, state: LetterState.CORRECT };
+      } else {
+        letterStates[j] = { letter, state: null };
+      }
+    }
+
+    // second pass: present / absent
+    for (let j = 0; j < n; j++) {
+      const { letter, state } = letterStates[j];
+      if (state !== null) {
+        continue;
+      }
+
+      const usedCount = usedFreqs[letter] || 0;
+      const answerCount = answerFreqs[letter] || 0;
+
+      if (usedCount < answerCount) {
+        usedFreqs[letter] = usedCount + 1;
+        letterStates[j].state = LetterState.PRESENT;
+      } else {
+        letterStates[j].state = LetterState.ABSENT;
+      }
+    }
+
+    return letterStates;
+  }
+
+  static satisfiesLetterStates(letterStates, word) {
+    const wordFreqs = {};
+    for (const letter of word) {
+      wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
+    }
+
+    const requiredFreqs = {};
+
+    for (const wordLetterStates of letterStates) {
+      for (let j = 0; j < WORD_LENGTH; j++) {
+        const letterState = wordLetterStates[j];
+        if (letterState === null) {
+          continue;
+        }
+
+        const letter = letterState.letter;
+        const state = letterState.state;
+
+        if (state === LetterState.CORRECT) {
+          if (word[j] !== letter) {
+            return false;
+          }
+          requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+        } else if (state === LetterState.PRESENT) {
+          if (word[j] === letter) {
+            return false;
+          }
+          requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+        } else if (state === LetterState.ABSENT) {
+          const requiredCount = requiredFreqs[letter] || 0;
+          if (wordFreqs[letter] > requiredCount) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+}
+
+// TODO: add valid answers / guesses in here
+class GameState {
+  constructor(answer, guesses) {
+    this.answer = answer;
+    this.guesses = guesses;
+  }
+
+  getStatus() {
+    const n = this.guesses.length;
+
+    if (this.guesses[n - 1] === this.answer) {
+      return GameStatus.WON;
+    }
+
+    if (n >= MAX_GUESSES) {
+      return GameStatus.LOST;
+    }
+
+    return GameStatus.IN_PROGRESS;
+  }
+
+  isTerminal() {
+    const status = this.getStatus();
+    return status !== GameStatus.IN_PROGRESS;
+  }
+
+  withAnswer(answer) {
+    if (answer.length !== WORD_LENGTH) {
+      throw new Error(`invalid answer ${answer}: wrong length`);
+    }
+
+    return new GameState(answer, [...this.guesses]);
+  }
+
+  withGuess(guess) {
+    if (this.guesses.length >= MAX_GUESSES) {
+      throw new Error("max guesses reached");
+    }
+
+    if (guess.length !== WORD_LENGTH) {
+      throw new Error(`invalid guess ${guess}: wrong length`);
+    }
+
+    // TODO: validate against valid guesses
+
+    return new GameState(this.answer, [...this.guesses, guess]);
+  }
+
+  getLetterStates() {
+    const letterStates = this.guesses.map((word) =>
+      LetterStateUtils.getLetterStates(this.answer, word),
+    );
+
+    while (letterStates.length < MAX_GUESSES) {
+      letterStates.push(Array(WORD_LENGTH).fill(null));
+    }
+
+    return letterStates;
+  }
+}
+
+const NodeType = {
+  ANSWER: "answer",
+  GUESS: "guess",
+};
+
+const getAvailableAnswers = (validAnswers, gameState) => {
+  return validAnswers.filter((answer) =>
+    LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), answer),
+  );
+};
+
+const getProbableGuesses = (validGuesses, gameState) => {
+  return validGuesses.filter((guess) =>
+    LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), guess),
+  );
+};
+
+const evaluateNode = (validAnswers, validGuesses, gameState, nodeType) => {
+  const status = gameState.getStatus();
+
+  if (status === GameStatus.WON) {
+    return { move: null, score: 0 };
+  }
+
+  if (status === GameStatus.LOST) {
+    return { move: null, score: 1 };
+  }
+
+  if (nodeType === NodeType.ANSWER) {
+    // answer: max
+    const nextAnswers = getAvailableAnswers(validAnswers, gameState);
+    let bestAnswer = null;
+    let bestScore = -Infinity;
+
+    for (const nextAnswer of nextAnswers) {
+      const nextGameState = gameState.withAnswer(nextAnswer);
+      const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.GUESS);
+      if (bestAnswer === null || score > bestScore) {
+        bestAnswer = nextAnswer;
+        bestScore = score;
+      }
+    }
+
+    return { move: bestAnswer, score: bestScore };
+  }
+
+  // guess: expect
+  const nextGuesses = getProbableGuesses(validGuesses, gameState);
+  let totalScore = 0.0;
+  let totalWeight = 0.0;
+  for (const nextGuess of nextGuesses) {
+    const nextGameState = gameState.withGuess(nextGuess);
+    const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.ANSWER);
+    const weight = Math.pow(2, -score);
+    totalScore += score;
+    totalWeight += weight;
+  }
+
+  return { move: null, score: 1 + totalScore / totalWeight };
+};
+
+// expectimax
+// value is average number of remaining guesses
+// tree: answer (max) -> guess (expect) -> ...
+const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
+  const { move, score } = evaluateNode(validAnswers, validGuesses, gameState, NodeType.ANSWER);
+  console.log(`move: ${move}, score: ${score}`);
+
+  return move;
+};
+
+class Game {
   constructor(validAnswers, validGuesses) {
     this.validAnswers = validAnswers;
     this.validGuesses = validGuesses;
-    this.answer = this._getAdversarialAnswer();
+
+    this.answer = this._getRandomAnswer();
+    this.state = new GameState(this.answer, []);
+    this.currentGuess = "";
+  }
+
+  _getRandomAnswer() {
+    const i = Math.floor(Math.random() * this.validAnswers.length);
+    console.log(`Random answer: ${this.validAnswers[i]}`);
+    return this.validAnswers[i];
   }
 
   _getAdversarialAnswer() {
-    // TODO: implement adversarial answer selection
-    return "ABATE";
+    return getAdversarialAnswer(this.validAnswers, this.validGuesses, this.state);
   }
 
   isFinished() {
-    return this.state !== GameState.IN_PROGRESS;
+    return this.state.isTerminal();
   }
 
   enterLetter(letter) {
-    if (this.isFinished()) {
+    if (this.state.isTerminal()) {
       return;
     }
 
@@ -58,93 +279,33 @@ class Game {
 
     const guess = this.currentGuess;
 
-    if (guess.length !== WORD_LENGTH) {
-      return;
-    }
+    try {
+      if (!this.validGuesses.includes(guess)) {
+        throw new Error(`invalid guess ${guess}: not in word list`);
+      }
 
-    if (!this.validGuesses.includes(guess)) {
-      // TODO: better error handling
-      alert("Not a valid guess: " + guess);
-      return;
+      this.state = this.state.withGuess(guess);
+
+      if (!this.isFinished()) {
+        const newAnswer = this._getAdversarialAnswer();
+        this.state = this.state.withAnswer(newAnswer);
+      }
+    } catch (err) {
+      alert(err.message);
     }
 
     this.currentGuess = "";
-
-    this.guesses.push(guess);
-
-    if (guess === this.answer) {
-      this.state = GameState.WON;
-    } else if (this.guesses.length >= MAX_GUESSES) {
-      this.state = GameState.LOST;
-    } else {
-      this.answer = this._getAdversarialAnswer();
-    }
-  }
-
-  _getLetters() {
-    const words = [...this.guesses, this.currentGuess];
-    const letters = Array(MAX_GUESSES);
-
-    for (let i = 0; i < MAX_GUESSES; i++) {
-      const wordLetters = Array(WORD_LENGTH).fill(null);
-
-      if (i < words.length) {
-        for (let j = 0; j < words[i].length; j++) {
-          wordLetters[j] = words[i][j];
-        }
-      }
-
-      letters[i] = wordLetters;
-    }
-
-    return letters;
   }
 
   getLetterStates() {
-    const letters = this._getLetters();
+    const letterStates = this.state.getLetterStates();
 
-    const answerFreqs = {};
-    for (const letter of this.answer) {
-      answerFreqs[letter] = (answerFreqs[letter] || 0) + 1;
-    }
+    letterStates[this.state.guesses.length] = LetterStateUtils.getLetterStates(
+      "",
+      this.currentGuess,
+    );
 
-    return letters.map((wordLetters, i) => {
-      const usedFreqs = {};
-
-      const firstPass = wordLetters.map((letter, j) => {
-        if (letter === null) {
-          return null;
-        }
-
-        if (i >= this.guesses.length) {
-          return { letter, state: LetterState.ABSENT };
-        }
-
-        if (letter === this.answer[j]) {
-          usedFreqs[letter] = (usedFreqs[letter] || 0) + 1;
-          return { letter, state: LetterState.CORRECT };
-        }
-
-        return { letter, state: null };
-      });
-
-      return firstPass.map((letterState, j) => {
-        if (letterState === null || letterState.state !== null) {
-          return letterState;
-        }
-
-        const letter = letterState.letter;
-        const usedCount = usedFreqs[letter] || 0;
-        const answerCount = answerFreqs[letter] || 0;
-
-        if (usedCount < answerCount) {
-          usedFreqs[letter] = usedCount + 1;
-          return { letter, state: LetterState.PRESENT };
-        }
-
-        return { letter, state: LetterState.ABSENT };
-      });
-    });
+    return letterStates;
   }
 
   absentLetters() {
@@ -152,7 +313,7 @@ class Game {
 
     const letterStates = this.getLetterStates();
     letterStates.forEach((wordLetterStates, i) => {
-      if (i >= this.guesses.length) {
+      if (i >= this.state.guesses.length) {
         return;
       }
 
