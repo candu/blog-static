@@ -57,7 +57,7 @@ class LetterStateUtils {
     return letterStates;
   }
 
-  satisfiesLetterStates(letterStates, word) {
+  static satisfiesLetterStates(letterStates, word) {
     const wordFreqs = {};
     for (const letter of word) {
       wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
@@ -119,6 +119,11 @@ class GameState {
     return GameStatus.IN_PROGRESS;
   }
 
+  isTerminal() {
+    const status = this.getStatus();
+    return status !== GameStatus.IN_PROGRESS;
+  }
+
   withAnswer(answer) {
     if (answer.length !== WORD_LENGTH) {
       throw new Error(`invalid answer ${answer}: wrong length`);
@@ -140,33 +145,117 @@ class GameState {
 
     return new GameState(this.answer, [...this.guesses, guess]);
   }
+
+  getLetterStates() {
+    const letterStates = this.guesses.map((word) =>
+      LetterStateUtils.getLetterStates(this.answer, word),
+    );
+
+    while (letterStates.length < MAX_GUESSES) {
+      letterStates.push(Array(WORD_LENGTH).fill(null));
+    }
+
+    return letterStates;
+  }
 }
 
-class AdversarialAnswer {
-  static get() {}
-}
+const NodeType = {
+  ANSWER: "answer",
+  GUESS: "guess",
+};
+
+const getAvailableAnswers = (validAnswers, gameState) => {
+  return validAnswers.filter((answer) =>
+    LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), answer),
+  );
+};
+
+const getProbableGuesses = (validGuesses, gameState) => {
+  return validGuesses.filter((guess) =>
+    LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), guess),
+  );
+};
+
+const evaluateNode = (validAnswers, validGuesses, gameState, nodeType) => {
+  const status = gameState.getStatus();
+
+  if (status === GameStatus.WON) {
+    return { move: null, score: 0 };
+  }
+
+  if (status === GameStatus.LOST) {
+    return { move: null, score: 1 };
+  }
+
+  if (nodeType === NodeType.ANSWER) {
+    // answer: max
+    const nextAnswers = getAvailableAnswers(validAnswers, gameState);
+    let bestAnswer = null;
+    let bestScore = -Infinity;
+
+    for (const nextAnswer of nextAnswers) {
+      const nextGameState = gameState.withAnswer(nextAnswer);
+      const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.GUESS);
+      if (bestAnswer === null || score > bestScore) {
+        bestAnswer = nextAnswer;
+        bestScore = score;
+      }
+    }
+
+    return { move: bestAnswer, score: bestScore };
+  }
+
+  // guess: expect
+  const nextGuesses = getProbableGuesses(validGuesses, gameState);
+  let totalScore = 0.0;
+  let totalWeight = 0.0;
+  for (const nextGuess of nextGuesses) {
+    const nextGameState = gameState.withGuess(nextGuess);
+    const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.ANSWER);
+    const weight = Math.pow(2, -score);
+    totalScore += score;
+    totalWeight += weight;
+  }
+
+  return { move: null, score: 1 + totalScore / totalWeight };
+};
+
+// expectimax
+// value is average number of remaining guesses
+// tree: answer (max) -> guess (expect) -> ...
+const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
+  const { move, score } = evaluateNode(validAnswers, validGuesses, gameState, NodeType.ANSWER);
+  console.log(`move: ${move}, score: ${score}`);
+
+  return move;
+};
 
 class Game {
   constructor(validAnswers, validGuesses) {
     this.validAnswers = validAnswers;
     this.validGuesses = validGuesses;
 
-    this.answer = this._getAdversarialAnswer();
+    this.answer = this._getRandomAnswer();
     this.state = new GameState(this.answer, []);
     this.currentGuess = "";
   }
 
+  _getRandomAnswer() {
+    const i = Math.floor(Math.random() * this.validAnswers.length);
+    console.log(`Random answer: ${this.validAnswers[i]}`);
+    return this.validAnswers[i];
+  }
+
   _getAdversarialAnswer() {
-    return "ABATE";
+    return getAdversarialAnswer(this.validAnswers, this.validGuesses, this.state);
   }
 
   isFinished() {
-    const status = this.state.getStatus();
-    return status !== GameStatus.IN_PROGRESS;
+    return this.state.isTerminal();
   }
 
   enterLetter(letter) {
-    if (this.isFinished()) {
+    if (this.state.isTerminal()) {
       return;
     }
 
@@ -209,15 +298,12 @@ class Game {
   }
 
   getLetterStates() {
-    const letterStates = this.state.guesses.map((word) =>
-      LetterStateUtils.getLetterStates(this.state.answer, word),
+    const letterStates = this.state.getLetterStates();
+
+    letterStates[this.state.guesses.length] = LetterStateUtils.getLetterStates(
+      "",
+      this.currentGuess,
     );
-
-    letterStates.push(LetterStateUtils.getLetterStates("", this.currentGuess));
-
-    while (letterStates.length < MAX_GUESSES) {
-      letterStates.push(Array(WORD_LENGTH).fill(null));
-    }
 
     return letterStates;
   }
