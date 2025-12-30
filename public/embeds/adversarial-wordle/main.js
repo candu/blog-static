@@ -195,12 +195,17 @@ const evaluateNode = (validAnswers, validGuesses, gameState, nodeType) => {
 
     for (const nextAnswer of nextAnswers) {
       const nextGameState = gameState.withAnswer(nextAnswer);
-      const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.GUESS);
+      const { score } = evaluateNode(nextAnswers, validGuesses, nextGameState, NodeType.GUESS);
       if (bestAnswer === null || score > bestScore) {
         bestAnswer = nextAnswer;
         bestScore = score;
       }
     }
+
+    const space = "  ".repeat(gameState.guesses.length);
+    console.log(
+      `${space}type=${nodeType}, guesses=${gameState.guesses.join(",")}, bestAnswer=${bestAnswer}, bestScore=${bestScore}`,
+    );
 
     return { move: bestAnswer, score: bestScore };
   }
@@ -211,9 +216,9 @@ const evaluateNode = (validAnswers, validGuesses, gameState, nodeType) => {
   let totalWeight = 0.0;
   for (const nextGuess of nextGuesses) {
     const nextGameState = gameState.withGuess(nextGuess);
-    const { score } = evaluateNode(validAnswers, validGuesses, nextGameState, NodeType.ANSWER);
+    const { score } = evaluateNode(validAnswers, nextGuesses, nextGameState, NodeType.ANSWER);
     const weight = Math.pow(2, -score);
-    totalScore += score;
+    totalScore += score * weight;
     totalWeight += weight;
   }
 
