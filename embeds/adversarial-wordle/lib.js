@@ -242,17 +242,16 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
 
     // guess: expect
     const nextGuesses = getProbableGuesses(validGuesses, gameState);
+    const n = nextGuesses.length;
+
     let totalScore = 0.0;
-    let totalWeight = 0.0;
     for (const nextGuess of nextGuesses) {
       const nextGameState = gameState.withGuess(nextGuess);
       const { score } = evaluateNode(validAnswers, nextGuesses, nextGameState, NodeType.ANSWER);
-      const weight = Math.pow(2, -score);
-      totalScore += score * weight;
-      totalWeight += weight;
+      totalScore += score / n;
     }
 
-    return { move: null, score: 1 + totalScore / totalWeight };
+    return { move: null, score: 1 + totalScore };
   };
 
   const { move, score } = evaluateNode(validAnswers, validGuesses, gameState, NodeType.ANSWER);
