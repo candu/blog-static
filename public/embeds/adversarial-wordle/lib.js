@@ -72,8 +72,7 @@ export class LetterStateUtils {
           continue;
         }
 
-        const letter = letterState.letter;
-        const state = letterState.state;
+        const { letter, state } = letterState;
 
         if (state === LetterState.CORRECT) {
           if (word[j] !== letter) {

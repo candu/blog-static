@@ -56,4 +56,24 @@ describe("LetterStateUtils", () => {
       ]);
     });
   });
+
+  describe("satisfiesLetterStates", () => {
+    it.for([
+      { guess: "ACFDG", expected: true }, // matches all constraints
+      { guess: "ABCDE", expected: false }, // B, E should be absent
+      { guess: "AFCDG", expected: false }, // C should not be in position 2
+      { guess: "AAFDG", expected: true }, // possible to have multiple A's
+    ])("ABCDE:capca returns $expected for $guess", ({ guess, expected }) => {
+      const letterStates = [
+        [
+          { letter: "A", state: LetterState.CORRECT },
+          { letter: "B", state: LetterState.ABSENT },
+          { letter: "C", state: LetterState.PRESENT },
+          { letter: "D", state: LetterState.CORRECT },
+          { letter: "E", state: LetterState.ABSENT },
+        ],
+      ];
+      expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
+    });
+  });
 });
