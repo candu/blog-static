@@ -62,11 +62,13 @@ describe("LetterStateUtils", () => {
   });
 
   describe("satisfiesLetterStates", () => {
-    it.only.for([
+    it.for([
       { guess: "ACFDG", expected: true }, // matches all constraints
       { guess: "ABCDE", expected: false }, // B, E should be absent
+      { guess: "ACBDG", expected: false }, // B should be absent, regardless of position
       { guess: "AFCDG", expected: false }, // C should not be in position 2
-      { guess: "AAFDG", expected: true }, // possible to have multiple A's
+      { guess: "AAFDG", expected: false }, // must have at least one C
+      { guess: "ACFDC", expected: true }, // can have extra C's
     ])("ABCDE:capca returns $expected for $guess", ({ guess, expected }) => {
       const letterStates = [
         { letter: "A", state: LetterState.CORRECT },
@@ -82,7 +84,7 @@ describe("LetterStateUtils", () => {
 
 describe("GameState", () => {
   describe("satisfiesLetterStates", () => {
-    it.only.for([
+    it.for([
       { answer: "CAIRN", guesses: ["ABASE", "CADDY", "CALIF", "CAPUT", "CANON"] },
       { answer: "REIGN", guesses: ["ROARS", "RECCE", "REDDY", "REWTH", "RENIN"] },
       { answer: "AMPLE", guesses: ["SINGE", "ACKEE", "ADOBE", "AQUAE", "APPLE"] },

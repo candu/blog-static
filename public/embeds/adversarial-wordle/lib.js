@@ -58,13 +58,10 @@ export class LetterStateUtils {
   }
 
   static satisfiesLetterStates(letterStates, word) {
-    const wordFreqs = {};
-    for (const letter of word) {
-      wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
-    }
-
     const requiredFreqs = {};
+    const absent = new Set();
 
+    // first pass: check CORRECT and PRESENT letters, collect PRESENT / ABSENT info and counts
     for (let j = 0; j < WORD_LENGTH; j++) {
       const letterState = letterStates[j];
       if (letterState === null) {
@@ -74,20 +71,45 @@ export class LetterStateUtils {
       const { letter, state } = letterState;
 
       if (state === LetterState.CORRECT) {
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
         if (word[j] !== letter) {
           return false;
         }
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
       } else if (state === LetterState.PRESENT) {
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
         if (word[j] === letter) {
           return false;
         }
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
       } else if (state === LetterState.ABSENT) {
-        const requiredCount = requiredFreqs[letter] || 0;
-        if (wordFreqs[letter] > requiredCount) {
+        absent.add(letter);
+      }
+    }
+
+    // second pass: check ABSENT letters
+    for (const letter of word) {
+      const requiredCount = requiredFreqs[letter] || 0;
+      if (requiredCount > 0) {
+        continue;
+      }
+
+      if (absent.has(letter)) {
+        return false;
+      }
+    }
+
+    // check frequencies
+    const wordFreqs = {};
+    for (const letter of word) {
+      wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
+    }
+    for (const [letter, requiredCount] of Object.entries(requiredFreqs)) {
+      const wordCount = wordFreqs[letter] || 0;
+      if (absent.has(letter)) {
+        if (wordCount !== requiredCount) {
           return false;
         }
+      } else if (wordCount < requiredCount) {
+        return false;
       }
     }
 
