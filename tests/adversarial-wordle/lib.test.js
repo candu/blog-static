@@ -75,5 +75,34 @@ describe("LetterStateUtils", () => {
       ];
       expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
     });
+
+    it.for([
+      { guess: "ACFDG", expected: true }, // matches all constraints
+      { guess: "ABCDE", expected: false }, // B, E should be absent
+      { guess: "AFCDG", expected: false }, // C should not be in position 2
+      { guess: "AAFDG", expected: true }, // possible to have multiple A's
+    ])("ABCDE:capca returns $expected for $guess", ({ guess, expected }) => {
+      const letterStates = [
+        [
+          { letter: "C", state: LetterState.CORRECT },
+          { letter: "O", state: LetterState.ABSENT },
+          { letter: "U", state: LetterState.PRESENT },
+          { letter: "C", state: LetterState.CORRECT },
+          { letter: "H", state: LetterState.ABSENT },
+        ],
+      ];
+      expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
+    });
+
+    it.only.for([
+      { answer: "CAIRN", guesses: ["ABASE", "CADDY", "CALIF", "CAPUT", "CANON"] },
+      { answer: "REIGN", guesses: ["ROARS", "RECCE", "REDDY", "REWTH", "RENIN"] },
+      { answer: "AMPLE", guesses: ["SINGE", "ACKEE", "ADOBE", "AQUAE", "APPLE"] },
+      { answer: "RADIO", guesses: ["REBUS", "RAGGA", "RALLY", "RANCH", "RATOO"] },
+    ])("handles actual letter states correctly: $answer ($guesses)", ({ answer, guesses }) => {
+      const letterStates = guesses.map((guess) => LetterStateUtils.getLetterStates(answer, guess));
+
+      expect(LetterStateUtils.satisfiesLetterStates(letterStates, answer)).toBe(true);
+    });
   });
 });
