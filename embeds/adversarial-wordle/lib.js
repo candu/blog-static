@@ -189,16 +189,12 @@ export const NodeType = {
 };
 
 export const getAvailableAnswers = (validAnswers, gameState) => {
-  return validAnswers.filter((answer) =>
-    LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), answer),
-  );
+  return validAnswers.filter((answer) => gameState.satisfiesLetterStates(answer));
 };
 
 export const getProbableGuesses = (validGuesses, gameState) => {
   return validGuesses.filter(
-    (guess) =>
-      !gameState.guesses.includes(guess) &&
-      LetterStateUtils.satisfiesLetterStates(gameState.getLetterStates(), guess),
+    (guess) => !gameState.guesses.includes(guess) && gameState.satisfiesLetterStates(guess),
   );
 };
 
