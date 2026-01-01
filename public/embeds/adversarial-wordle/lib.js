@@ -65,30 +65,28 @@ export class LetterStateUtils {
 
     const requiredFreqs = {};
 
-    for (const wordLetterStates of letterStates) {
-      for (let j = 0; j < WORD_LENGTH; j++) {
-        const letterState = wordLetterStates[j];
-        if (letterState === null) {
-          continue;
+    for (let j = 0; j < WORD_LENGTH; j++) {
+      const letterState = letterStates[j];
+      if (letterState === null) {
+        continue;
+      }
+
+      const { letter, state } = letterState;
+
+      if (state === LetterState.CORRECT) {
+        if (word[j] !== letter) {
+          return false;
         }
-
-        const { letter, state } = letterState;
-
-        if (state === LetterState.CORRECT) {
-          if (word[j] !== letter) {
-            return false;
-          }
-          requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        } else if (state === LetterState.PRESENT) {
-          if (word[j] === letter) {
-            return false;
-          }
-          requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        } else if (state === LetterState.ABSENT) {
-          const requiredCount = requiredFreqs[letter] || 0;
-          if (wordFreqs[letter] > requiredCount) {
-            return false;
-          }
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+      } else if (state === LetterState.PRESENT) {
+        if (word[j] === letter) {
+          return false;
+        }
+        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
+      } else if (state === LetterState.ABSENT) {
+        const requiredCount = requiredFreqs[letter] || 0;
+        if (wordFreqs[letter] > requiredCount) {
+          return false;
         }
       }
     }
@@ -152,6 +150,14 @@ export class GameState {
     }
 
     return letterStates;
+  }
+
+  satisfiesLetterStates(word) {
+    const letterStates = this.getLetterStates();
+
+    return letterStates.every((wordLetterStates) =>
+      LetterStateUtils.satisfiesLetterStates(wordLetterStates, word),
+    );
   }
 }
 

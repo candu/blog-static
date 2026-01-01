@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LetterState, LetterStateUtils } from "../../public/embeds/adversarial-wordle/lib";
+import {
+  GameState,
+  LetterState,
+  LetterStateUtils,
+} from "../../public/embeds/adversarial-wordle/lib";
 
 describe("LetterStateUtils", () => {
   describe("getLetterStates", () => {
@@ -58,51 +62,35 @@ describe("LetterStateUtils", () => {
   });
 
   describe("satisfiesLetterStates", () => {
-    it.for([
+    it.only.for([
       { guess: "ACFDG", expected: true }, // matches all constraints
       { guess: "ABCDE", expected: false }, // B, E should be absent
       { guess: "AFCDG", expected: false }, // C should not be in position 2
       { guess: "AAFDG", expected: true }, // possible to have multiple A's
     ])("ABCDE:capca returns $expected for $guess", ({ guess, expected }) => {
       const letterStates = [
-        [
-          { letter: "A", state: LetterState.CORRECT },
-          { letter: "B", state: LetterState.ABSENT },
-          { letter: "C", state: LetterState.PRESENT },
-          { letter: "D", state: LetterState.CORRECT },
-          { letter: "E", state: LetterState.ABSENT },
-        ],
+        { letter: "A", state: LetterState.CORRECT },
+        { letter: "B", state: LetterState.ABSENT },
+        { letter: "C", state: LetterState.PRESENT },
+        { letter: "D", state: LetterState.CORRECT },
+        { letter: "E", state: LetterState.ABSENT },
       ];
       expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
     });
+  });
+});
 
-    it.for([
-      { guess: "ACFDG", expected: true }, // matches all constraints
-      { guess: "ABCDE", expected: false }, // B, E should be absent
-      { guess: "AFCDG", expected: false }, // C should not be in position 2
-      { guess: "AAFDG", expected: true }, // possible to have multiple A's
-    ])("ABCDE:capca returns $expected for $guess", ({ guess, expected }) => {
-      const letterStates = [
-        [
-          { letter: "C", state: LetterState.CORRECT },
-          { letter: "O", state: LetterState.ABSENT },
-          { letter: "U", state: LetterState.PRESENT },
-          { letter: "C", state: LetterState.CORRECT },
-          { letter: "H", state: LetterState.ABSENT },
-        ],
-      ];
-      expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
-    });
-
+describe("GameState", () => {
+  describe("satisfiesLetterStates", () => {
     it.only.for([
       { answer: "CAIRN", guesses: ["ABASE", "CADDY", "CALIF", "CAPUT", "CANON"] },
       { answer: "REIGN", guesses: ["ROARS", "RECCE", "REDDY", "REWTH", "RENIN"] },
       { answer: "AMPLE", guesses: ["SINGE", "ACKEE", "ADOBE", "AQUAE", "APPLE"] },
       { answer: "RADIO", guesses: ["REBUS", "RAGGA", "RALLY", "RANCH", "RATOO"] },
     ])("handles actual letter states correctly: $answer ($guesses)", ({ answer, guesses }) => {
-      const letterStates = guesses.map((guess) => LetterStateUtils.getLetterStates(answer, guess));
+      const gameState = new GameState(answer, guesses);
 
-      expect(LetterStateUtils.satisfiesLetterStates(letterStates, answer)).toBe(true);
+      expect(gameState.satisfiesLetterStates(answer)).toBe(true);
     });
   });
 });
