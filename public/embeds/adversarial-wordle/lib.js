@@ -204,8 +204,11 @@ export const getProbableGuesses = (validGuesses, gameState) => {
 export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
   let statesConsidered = 0;
 
-  const evaluateNode = (validAnswers, validGuesses, gameState, nodeType) => {
+  const evaluateNode = (validAnswers, validGuesses, gameState, nodeType, alpha, beta) => {
     statesConsidered += 1;
+    if (statesConsidered % 10000 === 0) {
+      console.log(`states considered: ${statesConsidered}`);
+    }
 
     const status = gameState.getStatus();
 
@@ -225,17 +228,27 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
 
       for (const nextAnswer of nextAnswers) {
         const nextGameState = gameState.withAnswer(nextAnswer);
-        const { score } = evaluateNode(nextAnswers, validGuesses, nextGameState, NodeType.GUESS);
+        const { score } = evaluateNode(
+          nextAnswers,
+          validGuesses,
+          nextGameState,
+          NodeType.GUESS,
+          alpha,
+          beta,
+        );
         if (bestAnswer === null || score > bestScore) {
           bestAnswer = nextAnswer;
           bestScore = score;
         }
-      }
 
-      const space = "  ".repeat(gameState.guesses.length);
-      console.log(
-        `${space}type=${nodeType}, guesses=${gameState.guesses.join(",")}, bestAnswer=${bestAnswer}, bestScore=${bestScore}`,
-      );
+        // Beta cutoff: this node is too good for parent
+        if (bestScore >= beta) {
+          break;
+        }
+
+        // Update alpha
+        alpha = Math.max(alpha, bestScore);
+      }
 
       return { move: bestAnswer, score: bestScore };
     }
@@ -244,17 +257,60 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     const nextGuesses = getProbableGuesses(validGuesses, gameState);
     const n = nextGuesses.length;
 
-    let totalScore = 0.0;
+    // Score bounds for children (ANSWER nodes after this guess)
+    const numGuessesAlreadyMade = gameState.guesses.length;
+    const minChildScore = 0; // best case: WON immediately
+    const maxChildScore = MAX_GUESSES + 1 - numGuessesAlreadyMade; // worst case: all remaining guesses
+
+    let partialSum = 0.0;
+    let k = 0;
+
     for (const nextGuess of nextGuesses) {
       const nextGameState = gameState.withGuess(nextGuess);
-      const { score } = evaluateNode(validAnswers, nextGuesses, nextGameState, NodeType.ANSWER);
-      totalScore += score / n;
+      const { score } = evaluateNode(
+        validAnswers,
+        nextGuesses,
+        nextGameState,
+        NodeType.ANSWER,
+        alpha,
+        beta,
+      );
+
+      partialSum += score;
+      k += 1;
+
+      // Calculate bounds on final score (1 + average)
+      const remainingChildren = n - k;
+
+      const optimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
+      const optimisticFinalScore = 1 + optimisticAvg;
+
+      const pessimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
+      const pessimisticFinalScore = 1 + pessimisticAvg;
+
+      // Alpha cutoff: even best case can't improve alpha
+      if (optimisticFinalScore <= alpha) {
+        return { move: null, score: optimisticFinalScore };
+      }
+
+      // Beta cutoff: even worst case exceeds beta
+      if (pessimisticFinalScore >= beta) {
+        return { move: null, score: pessimisticFinalScore };
+      }
     }
 
-    return { move: null, score: 1 + totalScore };
+    const avgScore = partialSum / n;
+    return { move: null, score: 1 + avgScore };
   };
 
-  const { move, score } = evaluateNode(validAnswers, validGuesses, gameState, NodeType.ANSWER);
+  const { move, score } = evaluateNode(
+    validAnswers,
+    validGuesses,
+    gameState,
+    NodeType.ANSWER,
+    -Infinity,
+    Infinity,
+  );
   console.log(`move: ${move}, score: ${score}`);
   console.log(`states considered: ${statesConsidered}`);
 
