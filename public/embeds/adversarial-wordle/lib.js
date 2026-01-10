@@ -236,13 +236,14 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
           alpha,
           beta,
         );
+
         if (bestAnswer === null || score > bestScore) {
           bestAnswer = nextAnswer;
           bestScore = score;
         }
 
-        // Beta cutoff: this node is too good for parent
         if (bestScore >= beta) {
+          // Beta cutoff
           break;
         }
 
@@ -282,10 +283,10 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
       // Calculate bounds on final score (1 + average)
       const remainingChildren = n - k;
 
-      const optimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
+      const optimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
       const optimisticFinalScore = 1 + optimisticAvg;
 
-      const pessimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
+      const pessimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
       const pessimisticFinalScore = 1 + pessimisticAvg;
 
       // Alpha cutoff: even best case can't improve alpha
