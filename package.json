@@ -2,6 +2,7 @@
   "name": "blog-static",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "description": "Static files, scripts, embeds, etc. for my personal blog, candu can do.",
   "author": "Evan Savage",
   "scripts": {
@@ -13,6 +14,7 @@
     "eslint-config-prettier": "^9.1.0",
     "http-server": "^14.1.1",
     "prettier": "^3.2.5",
+    "tinybench": "^2.9.0",
     "vitest": "^4.0.16"
   }
 }
