@@ -312,10 +312,8 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     -Infinity,
     Infinity,
   );
-  console.log(`move: ${move}, score: ${score}`);
-  console.log(`states considered: ${statesConsidered}`);
 
-  return move;
+  return { move, score, statesConsidered };
 };
 
 export class Game {
@@ -335,7 +333,16 @@ export class Game {
   }
 
   _getAdversarialAnswer() {
-    return getAdversarialAnswer(this.validAnswers, this.validGuesses, this.state);
+    const { move, score, statesConsidered } = getAdversarialAnswer(
+      this.validAnswers,
+      this.validGuesses,
+      this.state,
+    );
+
+    console.log(`move: ${move}, score: ${score}`);
+    console.log(`states considered: ${statesConsidered}`);
+
+    return move;
   }
 
   isFinished() {
