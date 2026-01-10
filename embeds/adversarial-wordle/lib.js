@@ -236,13 +236,14 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
           alpha,
           beta,
         );
+
         if (bestAnswer === null || score > bestScore) {
           bestAnswer = nextAnswer;
           bestScore = score;
         }
 
-        // Beta cutoff: this node is too good for parent
         if (bestScore >= beta) {
+          // Beta cutoff
           break;
         }
 
@@ -260,7 +261,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     // Score bounds for children (ANSWER nodes after this guess)
     const numGuessesAlreadyMade = gameState.guesses.length;
     const minChildScore = 0; // best case: WON immediately
-    const maxChildScore = MAX_GUESSES + 1 - numGuessesAlreadyMade; // worst case: all remaining guesses
+    const maxChildScore = MAX_GUESSES - numGuessesAlreadyMade; // worst case: all remaining guesses
 
     let partialSum = 0.0;
     let k = 0;
@@ -282,10 +283,10 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
       // Calculate bounds on final score (1 + average)
       const remainingChildren = n - k;
 
-      const optimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
+      const optimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
       const optimisticFinalScore = 1 + optimisticAvg;
 
-      const pessimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
+      const pessimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
       const pessimisticFinalScore = 1 + pessimisticAvg;
 
       // Alpha cutoff: even best case can't improve alpha
@@ -311,10 +312,8 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     -Infinity,
     Infinity,
   );
-  console.log(`move: ${move}, score: ${score}`);
-  console.log(`states considered: ${statesConsidered}`);
 
-  return move;
+  return { move, score, statesConsidered };
 };
 
 export class Game {
@@ -334,7 +333,16 @@ export class Game {
   }
 
   _getAdversarialAnswer() {
-    return getAdversarialAnswer(this.validAnswers, this.validGuesses, this.state);
+    const { move, score, statesConsidered } = getAdversarialAnswer(
+      this.validAnswers,
+      this.validGuesses,
+      this.state,
+    );
+
+    console.log(`move: ${move}, score: ${score}`);
+    console.log(`states considered: ${statesConsidered}`);
+
+    return move;
   }
 
   isFinished() {
