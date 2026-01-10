@@ -260,7 +260,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     // Score bounds for children (ANSWER nodes after this guess)
     const numGuessesAlreadyMade = gameState.guesses.length;
     const minChildScore = 0; // best case: WON immediately
-    const maxChildScore = MAX_GUESSES + 1 - numGuessesAlreadyMade; // worst case: all remaining guesses
+    const maxChildScore = MAX_GUESSES - numGuessesAlreadyMade; // worst case: all remaining guesses
 
     let partialSum = 0.0;
     let k = 0;
