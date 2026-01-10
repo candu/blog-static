@@ -188,14 +188,26 @@ export const NodeType = {
   GUESS: "guess",
 };
 
+export const normalizeDistribution = (wordCounts) => {
+  const totalCount = wordCounts.reduce((sum, { count }) => sum + count, 0);
+  return wordCounts.map(({ word, count }) => ({ word, count: count / totalCount }));
+};
+
 export const getAvailableAnswers = (validAnswers, gameState) => {
-  return validAnswers.filter((answer) => gameState.satisfiesLetterStates(answer));
+  const availableAnswers = validAnswers.filter(({ word: answer }) =>
+    gameState.satisfiesLetterStates(answer),
+  );
+
+  return normalizeDistribution(availableAnswers);
 };
 
 export const getProbableGuesses = (validGuesses, gameState) => {
-  return validGuesses.filter(
-    (guess) => !gameState.guesses.includes(guess) && gameState.satisfiesLetterStates(guess),
+  const probableGuesses = validGuesses.filter(
+    ({ word: guess }) =>
+      !gameState.guesses.includes(guess) && gameState.satisfiesLetterStates(guess),
   );
+
+  return normalizeDistribution(probableGuesses);
 };
 
 // expectimax
@@ -227,7 +239,9 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
       let bestScore = -Infinity;
 
       for (const nextAnswer of nextAnswers) {
-        const nextGameState = gameState.withAnswer(nextAnswer);
+        const { word: nextAnswerWord } = nextAnswer;
+
+        const nextGameState = gameState.withAnswer(nextAnswerWord);
         const { score } = evaluateNode(
           nextAnswers,
           validGuesses,
@@ -238,7 +252,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
         );
 
         if (bestAnswer === null || score > bestScore) {
-          bestAnswer = nextAnswer;
+          bestAnswer = nextAnswerWord;
           bestScore = score;
         }
 
@@ -264,10 +278,12 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     const maxChildScore = MAX_GUESSES - numGuessesAlreadyMade; // worst case: all remaining guesses
 
     let partialSum = 0.0;
-    let k = 0;
+    let partialProb = 0.0;
 
     for (const nextGuess of nextGuesses) {
-      const nextGameState = gameState.withGuess(nextGuess);
+      const { word: nextGuessWord, count: prob } = nextGuess;
+      const nextGameState = gameState.withGuess(nextGuessWord);
+
       const { score } = evaluateNode(
         validAnswers,
         nextGuesses,
@@ -277,16 +293,13 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
         beta,
       );
 
-      partialSum += score;
-      k += 1;
+      partialSum += prob * score;
+      partialProb += prob;
 
-      // Calculate bounds on final score (1 + average)
-      const remainingChildren = n - k;
-
-      const optimisticAvg = (partialSum + remainingChildren * maxChildScore) / n;
+      const optimisticAvg = partialSum + (1 - partialProb) * maxChildScore;
       const optimisticFinalScore = 1 + optimisticAvg;
 
-      const pessimisticAvg = (partialSum + remainingChildren * minChildScore) / n;
+      const pessimisticAvg = partialSum + (1 - partialProb) * minChildScore;
       const pessimisticFinalScore = 1 + pessimisticAvg;
 
       // Alpha cutoff: even best case can't improve alpha
@@ -300,8 +313,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
       }
     }
 
-    const avgScore = partialSum / n;
-    return { move: null, score: 1 + avgScore };
+    return { move: null, score: 1 + partialSum };
   };
 
   const { move, score } = evaluateNode(
@@ -328,8 +340,11 @@ export class Game {
 
   _getRandomAnswer() {
     const i = Math.floor(Math.random() * this.validAnswers.length);
-    console.log(`Random answer: ${this.validAnswers[i]}`);
-    return this.validAnswers[i];
+    const { word, count } = this.validAnswers[i];
+
+    console.log(`Random answer: ${word} (count: ${count})`);
+
+    return word;
   }
 
   _getAdversarialAnswer() {
@@ -375,7 +390,7 @@ export class Game {
     const guess = this.currentGuess;
 
     try {
-      if (!this.validGuesses.includes(guess)) {
+      if (!this.validGuesses.some(({ word }) => word === guess)) {
         throw new Error(`invalid guess ${guess}: not in word list`);
       }
 
@@ -570,6 +585,14 @@ export async function getWordList(url) {
   const text = await response.text();
   return text
     .split("\n")
-    .map((word) => word.trim().toUpperCase())
-    .filter((word) => word.length > 0);
+    .slice(1)
+    .map((line) => {
+      const [wordRaw, countStr] = line.split(",");
+
+      const word = wordRaw.trim().toUpperCase();
+      const count = parseInt(countStr, 10);
+
+      return { word, count };
+    })
+    .filter(({ word, count }) => word.length > 0 && !isNaN(count) && count > 0);
 }
