@@ -8,10 +8,11 @@ Usage:
     python scripts/adversarial-wordle/compute_guess_ngram_counts.py > output.csv
 """
 import csv
+import os.path
 import sys
 import urllib.request
 
-WORDLE_GUESSES_PATH = 'public/data/wordle-guesses.csv'
+WORDLE_GUESSES_PATH = os.path.join('.', 'wordle-guesses.csv')
 NGRAMS_URL = 'https://norvig.com/ngrams/count_1w.txt'
 DEFAULT_COUNT = 10000
 
@@ -47,11 +48,10 @@ def read_wordle_guesses():
     """
     words = []
 
-    with open(WORDLE_GUESSES_PATH, 'r') as f:
-        for line in f:
-            word = line.strip()
-            if word:
-                words.append(word)
+    for line in sys.stdin:
+        word = line.strip()
+        if word:
+            words.append(word)
 
     return words
 
