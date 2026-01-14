@@ -389,6 +389,10 @@ export class Game {
 
     const guess = this.currentGuess;
 
+    if (guess.length !== WORD_LENGTH) {
+      return;
+    }
+
     try {
       if (!this.validGuesses.some(({ word }) => word === guess)) {
         throw new Error(`invalid guess ${guess}: not in word list`);
