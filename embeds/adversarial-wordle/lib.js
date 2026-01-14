@@ -118,7 +118,7 @@ export class LetterStateUtils {
 }
 
 export class GameState {
-  constructor(answer, guesses) {
+  constructor(answer, guesses = []) {
     this.answer = answer;
     this.guesses = guesses;
   }
@@ -126,7 +126,7 @@ export class GameState {
   getStatus() {
     const n = this.guesses.length;
 
-    if (this.guesses[n - 1] === this.answer) {
+    if (n > 0 && n <= MAX_GUESSES && this.guesses[n - 1] === this.answer) {
       return GameStatus.WON;
     }
 
@@ -441,15 +441,152 @@ export class Game {
   }
 }
 
+export class StatsManager {
+  constructor(storageKey = "adversarial-wordle-stats") {
+    this.storageKey = storageKey;
+  }
+
+  getDefaultStats() {
+    return {
+      totalGames: 0,
+      totalWins: 0,
+      totalGuesses: 0,
+      histogram: [0, 0, 0, 0, 0, 0], // index 0 = 1 guess, index 5 = 6 guesses
+    };
+  }
+
+  loadStats() {
+    try {
+      const stored = localStorage.getItem(this.storageKey);
+      if (!stored) {
+        return this.getDefaultStats();
+      }
+      const stats = JSON.parse(stored);
+      // Validate structure
+      if (!stats.histogram || stats.histogram.length !== 6) {
+        return this.getDefaultStats();
+      }
+      return stats;
+    } catch (err) {
+      console.error("Error loading stats:", err);
+      return this.getDefaultStats();
+    }
+  }
+
+  saveStats(stats) {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(stats));
+    } catch (err) {
+      console.error("Error saving stats:", err);
+    }
+  }
+
+  recordGame(gameState) {
+    const status = gameState.getStatus();
+
+    if (status === GameStatus.IN_PROGRESS) {
+      throw new Error("Cannot record stats for game in progress");
+    }
+
+    const stats = this.loadStats();
+    stats.totalGames += 1;
+
+    if (status === GameStatus.WON) {
+      const guessCount = gameState.guesses.length;
+      stats.totalWins += 1;
+      stats.totalGuesses += guessCount;
+      // guessCount is 1-6, array index is 0-5
+      stats.histogram[guessCount - 1] += 1;
+    }
+
+    this.saveStats(stats);
+    return stats;
+  }
+
+  clearStats() {
+    const stats = this.getDefaultStats();
+    this.saveStats(stats);
+    return stats;
+  }
+
+  getComputedStats() {
+    const stats = this.loadStats();
+    const winRate =
+      stats.totalGames > 0 ? Math.round((stats.totalWins / stats.totalGames) * 100) : 0;
+    const avgGuesses =
+      stats.totalWins > 0 ? (stats.totalGuesses / stats.totalWins).toFixed(1) : "0.0";
+
+    return {
+      ...stats,
+      winRate,
+      avgGuesses,
+    };
+  }
+}
+
 export class GameView {
-  constructor(game, $container) {
+  constructor(game, statsManager, $container) {
     this.game = game;
+    this.statsManager = statsManager;
     this.$container = $container;
   }
 
   _renderFinalScreen() {
-    // TODO: actually implement this
-    alert("Game Over! The answer was: " + this.game.state.answer.toUpperCase());
+    const status = this.game.state.getStatus();
+    const guessCount = this.game.state.guesses.length;
+
+    // Record the game result
+    this.statsManager.recordGame(this.game.state);
+    const computedStats = this.statsManager.getComputedStats();
+
+    // Hide board and keyboard
+    this.$container.querySelector(".board").classList.add("hidden");
+    this.$container.querySelector(".keyboard").classList.add("hidden");
+
+    // Show and populate stats screen
+    const $statsScreen = this.$container.querySelector(".stats-screen");
+    $statsScreen.classList.add("visible");
+
+    this._populateStatsScreen(computedStats, guessCount, status === GameStatus.WON);
+  }
+
+  _populateStatsScreen(stats, currentGuessCount, won) {
+    const $statsScreen = this.$container.querySelector(".stats-screen");
+
+    // Update summary stats
+    $statsScreen.querySelector('[data-stat="totalGames"]').textContent = stats.totalGames;
+    $statsScreen.querySelector('[data-stat="winRate"]').textContent = stats.winRate;
+    $statsScreen.querySelector('[data-stat="avgGuesses"]').textContent = stats.avgGuesses;
+
+    // Update histogram
+    const maxCount = Math.max(...stats.histogram, 1); // avoid division by zero
+
+    for (let i = 0; i < 6; i++) {
+      const guessNum = i + 1;
+      const count = stats.histogram[i];
+      const percentage = (count / maxCount) * 100;
+
+      const $bar = $statsScreen.querySelector(`[data-bar="${guessNum}"]`);
+      const $count = $bar.querySelector(".histogram-count");
+
+      $count.textContent = count;
+      $bar.style.width = `${Math.max(percentage, 7)}%`; // minimum 7% for visibility
+
+      // Highlight the current game's guess count if won
+      if (won && guessNum === currentGuessCount) {
+        $bar.classList.add("highlight");
+      } else {
+        $bar.classList.remove("highlight");
+      }
+    }
+  }
+
+  _hideStatsScreen() {
+    const $statsScreen = this.$container.querySelector(".stats-screen");
+    $statsScreen.classList.remove("visible");
+
+    this.$container.querySelector(".board").classList.remove("hidden");
+    this.$container.querySelector(".keyboard").classList.remove("hidden");
   }
 
   _renderBoard() {
@@ -507,9 +644,11 @@ export class GameController {
     this.validAnswers = validAnswers;
     this.validGuesses = validGuesses;
     this.$container = $container;
+    this.statsManager = new StatsManager();
 
     this.onKeyClick = this._handleKeyClick.bind(this);
     this.onKeyDown = this._handleKeyDown.bind(this);
+    this.onStatsAction = this._handleStatsAction.bind(this);
 
     this.newGame();
   }
@@ -544,6 +683,23 @@ export class GameController {
     }
   }
 
+  _handleStatsAction(evt) {
+    const action = evt.target.dataset.action;
+
+    if (action === "play-again") {
+      this.newGame();
+    } else if (action === "clear-stats") {
+      if (confirm("Are you sure you want to clear all statistics?")) {
+        this.statsManager.clearStats();
+        // Refresh the stats display
+        const stats = this.statsManager.getComputedStats();
+        const status = this.game.state.getStatus();
+        const won = status === GameStatus.WON;
+        this.gameView._populateStatsScreen(stats, 0, won);
+      }
+    }
+  }
+
   init() {
     document.addEventListener("keydown", this.onKeyDown);
 
@@ -551,11 +707,22 @@ export class GameController {
     for (const $key of $keys) {
       $key.addEventListener("click", this.onKeyClick);
     }
+
+    // Add stats button listeners
+    const $statsButtons = this.$container.querySelectorAll(".stats-actions .btn");
+    for (const $button of $statsButtons) {
+      $button.addEventListener("click", this.onStatsAction);
+    }
   }
 
   newGame() {
+    // Hide stats screen if visible
+    if (this.gameView) {
+      this.gameView._hideStatsScreen();
+    }
+
     this.game = new Game(this.validAnswers, this.validGuesses);
-    this.gameView = new GameView(this.game, this.$container);
+    this.gameView = new GameView(this.game, this.statsManager, this.$container);
     this.gameView.render();
   }
 
@@ -578,6 +745,11 @@ export class GameController {
     const $keys = this.$container.querySelectorAll(".key");
     for (const $key of $keys) {
       $key.removeEventListener("click", this.onKeyClick);
+    }
+
+    const $statsButtons = this.$container.querySelectorAll(".stats-actions .btn");
+    for (const $button of $statsButtons) {
+      $button.removeEventListener("click", this.onStatsAction);
     }
 
     document.removeEventListener("keydown", this.onKeyDown);
