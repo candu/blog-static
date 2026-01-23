@@ -15,6 +15,7 @@ const main = async () => {
   const gameState2 = GameState.simulate("HAUTE", ["THEWS"], validAnswers, validGuesses);
   const gameState3 = GameState.simulate("HEFTY", ["THEWS", "ETHIC"], validAnswers, validGuesses);
   const gameState4 = GameState.simulate("EXTRA", ["TAXES"], validAnswers, validGuesses);
+  const gameState5 = GameState.simulate("VOGUE", ["ADIEU"], validAnswers, validGuesses);
 
   const bench = new Bench({ time: 100 });
 
@@ -30,6 +31,9 @@ const main = async () => {
     })
     .add("getAdversarialAnswer - EXTRA / TAXES", () => {
       getAdversarialAnswer(gameState4);
+    })
+    .add("getAdversarialAnswer - VOGUE / ADIEU", () => {
+      getAdversarialAnswer(gameState5);
     });
 
   await bench.run();
