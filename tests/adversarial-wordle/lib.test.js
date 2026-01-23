@@ -92,13 +92,7 @@ describe("LetterStateUtils", () => {
     });
 
     it("caches results for repeated calls", () => {
-      const letterStates = [
-        { letter: "A", state: LetterState.CORRECT },
-        null,
-        null,
-        null,
-        null,
-      ];
+      const letterStates = [{ letter: "A", state: LetterState.CORRECT }, null, null, null, null];
 
       LetterStateUtils.satisfiesLetterStates(letterStates, "ABCDE");
       const stats1 = LetterStateUtils.getCacheStats();
@@ -128,13 +122,7 @@ describe("LetterStateUtils", () => {
     });
 
     it("caches different words with same letterStates separately", () => {
-      const letterStates = [
-        { letter: "A", state: LetterState.CORRECT },
-        null,
-        null,
-        null,
-        null,
-      ];
+      const letterStates = [{ letter: "A", state: LetterState.CORRECT }, null, null, null, null];
 
       LetterStateUtils.satisfiesLetterStates(letterStates, "ABCDE");
       LetterStateUtils.satisfiesLetterStates(letterStates, "AFGHT");
@@ -194,7 +182,7 @@ describe("getAdversarialAnswer", async () => {
   ]);
 
   it.for([
-    // { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 370000 },
+    { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 370000 },
     { answer: "MERRY", guesses: ["MIRTH"], maxStatesConsidered: 31000 },
     { answer: "HAUTE", guesses: ["THEWS"], maxStatesConsidered: 20000 },
     { answer: "SHIRE", guesses: ["RISEN"], maxStatesConsidered: 2000 },

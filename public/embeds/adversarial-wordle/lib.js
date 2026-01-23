@@ -387,7 +387,7 @@ export const getAdversarialAnswer = (gameState) => {
 
   const evaluateNode = (gameState, nodeType, alpha, beta) => {
     statesConsidered += 1;
-    if (statesConsidered % 10000 === 0) {
+    if (statesConsidered % 100000 === 0) {
       console.log(`states considered: ${statesConsidered}`);
     }
 
