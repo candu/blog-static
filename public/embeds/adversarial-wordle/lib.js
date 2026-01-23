@@ -109,8 +109,16 @@ const satisfiesCache = new SatisfiesCache(100000, 0.25);
  * Generates a compact hash string for a letterStates array.
  */
 function hashLetterStates(letterStates) {
-  const parts = letterStates.map((ls) => (ls === null ? "__" : `${ls.letter}${ls.state[0]}`));
-  return parts.join("");
+  let hash = "";
+  for (let i = 0; i < letterStates.length; i++) {
+    const ls = letterStates[i];
+    if (ls === null) {
+      hash += "__";
+    } else {
+      hash += ls.letter + ls.state[0];
+    }
+  }
+  return hash;
 }
 
 export class LetterStateUtils {
