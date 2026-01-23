@@ -182,6 +182,7 @@ describe("getAdversarialAnswer", async () => {
   ]);
 
   it.for([
+    { answer: "VOGUE", guesses: ["ADIEU"], maxStatesConsidered: 1500000 },
     { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 370000 },
     { answer: "MERRY", guesses: ["MIRTH"], maxStatesConsidered: 31000 },
     { answer: "HAUTE", guesses: ["THEWS"], maxStatesConsidered: 20000 },
