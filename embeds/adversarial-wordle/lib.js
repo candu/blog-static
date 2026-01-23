@@ -204,11 +204,18 @@ export class GameState {
   }
 
   satisfiesLetterStates(word) {
-    const letterStates = this.getLetterStates();
+    if (!this.validGuesses.some(({ word: validWord }) => validWord === word)) {
+      return false;
+    }
 
-    return letterStates.every((wordLetterStates) =>
-      LetterStateUtils.satisfiesLetterStates(wordLetterStates, word),
-    );
+    const n = this.guesses.length;
+    if (n === 0) {
+      return true;
+    }
+
+    const lastGuess = this.guesses[n - 1];
+    const lastLetterStates = LetterStateUtils.getLetterStates(this.answer, lastGuess);
+    return LetterStateUtils.satisfiesLetterStates(lastLetterStates, word);
   }
 }
 
