@@ -236,7 +236,6 @@ export const getAvailableAnswers = (gameState) => {
 
 export const getProbableGuesses = (gameState) => {
   // validGuesses already filtered by GameState invariant
-  // Just exclude already-made guesses
   const probableGuesses = gameState.validGuesses.filter(
     ({ word: guess }) => !gameState.guesses.includes(guess),
   );
