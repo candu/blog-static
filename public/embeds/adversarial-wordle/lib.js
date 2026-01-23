@@ -118,6 +118,11 @@ function hashLetterStates(letterStates) {
 }
 
 export class LetterStateUtils {
+  // Reusable data structures for satisfiesLetterStates (avoids allocations)
+  static _reusableRequiredFreqs = new Uint8Array(26);
+  static _reusableWordFreqs = new Uint8Array(26);
+  static _reusableAbsent = new Set();
+
   static getLetterStates(answer, word) {
     const letterStates = Array(WORD_LENGTH).fill(null);
 
@@ -179,59 +184,83 @@ export class LetterStateUtils {
     return result;
   }
 
-  static _satisfiesLetterStatesImpl(letterStates, word) {
-    const requiredFreqs = {};
-    const absent = new Set();
+  static _idx(letter) {
+    return letter.charCodeAt(0) - 65; // 'A' = 65
+  }
 
-    // first pass: check CORRECT and PRESENT letters, collect PRESENT / ABSENT info and counts
+  static _chr(i) {
+    return String.fromCharCode(65 + i);
+  }
+
+  static _satisfiesLetterStatesImpl(letterStates, word) {
+    // OPTIMIZATION 1a: Early termination - check CORRECT and PRESENT positions first
     for (let j = 0; j < WORD_LENGTH; j++) {
       const letterState = letterStates[j];
-      if (letterState === null) {
-        continue;
+      if (letterState?.state === LetterState.CORRECT && word[j] !== letterState.letter) {
+        return false;
       }
 
-      const { letter, state } = letterState;
-
-      if (state === LetterState.CORRECT) {
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        if (word[j] !== letter) {
-          return false;
-        }
-      } else if (state === LetterState.PRESENT) {
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        if (word[j] === letter) {
-          return false;
-        }
-      } else if (state === LetterState.ABSENT) {
-        absent.add(letter);
-      }
-    }
-
-    // second pass: check ABSENT letters
-    for (const letter of word) {
-      const requiredCount = requiredFreqs[letter] || 0;
-      if (requiredCount > 0) {
-        continue;
-      }
-
-      if (absent.has(letter)) {
+      if (letterState?.state === LetterState.PRESENT && word[j] === letterState.letter) {
         return false;
       }
     }
 
-    // check frequencies
-    const wordFreqs = {};
-    for (const letter of word) {
-      wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
+    // OPTIMIZATION 1b & 1c: Reuse typed arrays and Set (class-level)
+    this._reusableRequiredFreqs.fill(0);
+    this._reusableWordFreqs.fill(0);
+    this._reusableAbsent.clear();
+
+    // First pass: collect CORRECT and PRESENT constraints, ABSENT letters
+    for (let j = 0; j < WORD_LENGTH; j++) {
+      const letterState = letterStates[j];
+      if (letterState === null) continue;
+
+      const { letter, state } = letterState;
+      const i = this._idx(letter);
+
+      if (state === LetterState.CORRECT || state === LetterState.PRESENT) {
+        this._reusableRequiredFreqs[i]++;
+        // Already checked above in early termination
+      } else if (state === LetterState.ABSENT) {
+        this._reusableAbsent.add(letter);
+      }
     }
-    for (const [letter, requiredCount] of Object.entries(requiredFreqs)) {
-      const wordCount = wordFreqs[letter] || 0;
-      if (absent.has(letter)) {
+
+    // Second pass: check ABSENT letters in word
+    for (const letter of word) {
+      const i = this._idx(letter);
+      if (this._reusableRequiredFreqs[i] > 0) {
+        continue; // This letter is required, so it's allowed
+      }
+      if (this._reusableAbsent.has(letter)) {
+        return false; // Word contains absent letter
+      }
+    }
+
+    // Build word frequency map
+    for (const letter of word) {
+      const i = this._idx(letter);
+      this._reusableWordFreqs[i]++;
+    }
+
+    // Check frequency requirements
+    for (let i = 0; i < 26; i++) {
+      const requiredCount = this._reusableRequiredFreqs[i];
+      if (requiredCount === 0) continue;
+
+      const letter = this._chr(i);
+      const wordCount = this._reusableWordFreqs[i];
+
+      if (this._reusableAbsent.has(letter)) {
+        // Exact frequency required
         if (wordCount !== requiredCount) {
           return false;
         }
-      } else if (wordCount < requiredCount) {
-        return false;
+      } else {
+        // Minimum frequency required
+        if (wordCount < requiredCount) {
+          return false;
+        }
       }
     }
 
