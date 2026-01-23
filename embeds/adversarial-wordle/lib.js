@@ -14,6 +14,70 @@ export const WORD_LENGTH = 5;
 export const MAX_GUESSES = 6;
 
 /**
+ * Max-heap for finding k smallest lastUsed values (oldest entries).
+ * Maintains heap property: parent.lastUsed >= children.lastUsed
+ *
+ * Used to efficiently find the k oldest cache entries without sorting all entries.
+ * Space: O(k), Time: O(n log k) to find k oldest from n entries.
+ */
+class MaxHeap {
+  constructor(maxSize) {
+    this.heap = [];
+    this.maxSize = maxSize;
+  }
+
+  push(item) {
+    if (this.heap.length < this.maxSize) {
+      // Heap not full yet, add item and bubble up
+      this.heap.push(item);
+      this._bubbleUp(this.heap.length - 1);
+    } else if (item.lastUsed < this.heap[0].lastUsed) {
+      // Item is older than current max, replace root and bubble down
+      this.heap[0] = item;
+      this._bubbleDown(0);
+    }
+    // Else: item is newer than all k oldest, ignore it
+  }
+
+  getAll() {
+    return this.heap;
+  }
+
+  _bubbleUp(index) {
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      if (this.heap[index].lastUsed <= this.heap[parentIndex].lastUsed) break;
+
+      [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]];
+      index = parentIndex;
+    }
+  }
+
+  _bubbleDown(index) {
+    while (true) {
+      const leftChild = 2 * index + 1;
+      const rightChild = 2 * index + 2;
+      let largest = index;
+
+      if (leftChild < this.heap.length &&
+          this.heap[leftChild].lastUsed > this.heap[largest].lastUsed) {
+        largest = leftChild;
+      }
+
+      if (rightChild < this.heap.length &&
+          this.heap[rightChild].lastUsed > this.heap[largest].lastUsed) {
+        largest = rightChild;
+      }
+
+      if (largest === index) break;
+
+      [this.heap[index], this.heap[largest]] = [this.heap[largest], this.heap[index]];
+      index = largest;
+    }
+  }
+}
+
+/**
  * LRU cache for satisfiesLetterStates results.
  * Maintains a two-level Map structure with batch eviction for efficiency.
  */
@@ -60,19 +124,19 @@ class SatisfiesCache {
   }
 
   _evictOldest(count) {
-    // Collect all entries with their access times
-    const entries = [];
+    // Use bounded max-heap to find k oldest entries without sorting all entries
+    // Space: O(k), Time: O(n log k) instead of O(n) space + O(n log n) time
+    const heap = new MaxHeap(count);
+
+    // Iterate over all entries, heap maintains k oldest
     for (const [hash, innerMap] of this.cache.entries()) {
       for (const [word, entry] of innerMap.entries()) {
-        entries.push({ hash, word, lastUsed: entry.lastUsed });
+        heap.push({ hash, word, lastUsed: entry.lastUsed });
       }
     }
 
-    // Sort by lastUsed (oldest first)
-    entries.sort((a, b) => a.lastUsed - b.lastUsed);
-
-    // Evict the oldest `count` entries
-    const toEvict = entries.slice(0, count);
+    // Evict all entries from the heap (these are the k oldest)
+    const toEvict = heap.getAll();
     for (const { hash, word } of toEvict) {
       const innerMap = this.cache.get(hash);
       if (innerMap) {
