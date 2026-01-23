@@ -24,6 +24,7 @@ class SatisfiesCache {
     // Two-level Map: letterStatesHash -> Map<word, {result, lastUsed}>
     this.cache = new Map();
     this.accessCounter = 0; // Monotonic counter for LRU tracking
+    this.totalEntries = 0;
   }
 
   get(letterStatesHash, word) {
@@ -52,18 +53,10 @@ class SatisfiesCache {
 
     // Batch eviction: only evict when significantly over capacity
     // This reduces eviction frequency and amortizes the O(n) scan cost
-    const totalSize = this._getTotalSize();
-    if (totalSize > this.maxEntries * (1 + this.overheadFactor)) {
+    this.totalEntries++;
+    if (this.totalEntries > this.maxEntries * (1 + this.overheadFactor)) {
       this._evictOldest(Math.floor(this.maxEntries * this.overheadFactor));
     }
-  }
-
-  _getTotalSize() {
-    let total = 0;
-    for (const innerMap of this.cache.values()) {
-      total += innerMap.size;
-    }
-    return total;
   }
 
   _evictOldest(count) {
@@ -84,6 +77,8 @@ class SatisfiesCache {
       const innerMap = this.cache.get(hash);
       if (innerMap) {
         innerMap.delete(word);
+        this.totalEntries--;
+
         // Clean up empty inner maps
         if (innerMap.size === 0) {
           this.cache.delete(hash);
@@ -95,12 +90,13 @@ class SatisfiesCache {
   clear() {
     this.cache.clear();
     this.accessCounter = 0;
+    this.totalEntries = 0;
   }
 
   getStats() {
     return {
       letterStatesCount: this.cache.size,
-      totalEntries: this._getTotalSize(),
+      totalEntries: this.totalEntries,
       maxEntries: this.maxEntries,
     };
   }
