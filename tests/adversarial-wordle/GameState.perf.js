@@ -4,6 +4,7 @@ import { GameState } from "../../public/embeds/adversarial-wordle/lib.js";
 const bench = new Bench({ time: 100 });
 
 // Create GameState with 5 guesses (from actual test case)
+
 const gameState = new GameState("CAIRN", ["ABASE", "CADDY", "CALIF", "CAPUT", "CANON"]);
 
 bench
