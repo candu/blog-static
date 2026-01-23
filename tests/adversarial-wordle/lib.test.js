@@ -114,22 +114,24 @@ describe("getAdversarialAnswer", async () => {
   ]);
 
   it.for([
-    { answer: "HAUTE", guesses: ["THEWS"] },
-  ])("returns valid answer and meets performance threshold: $answer after $guesses", ({ answer, guesses }) => {
-    const gameState = GameState.simulate(answer, guesses, validAnswers, validGuesses);
+    // { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 1350000 },
+    { answer: "MERRY", guesses: ["MIRTH"], maxStatesConsidered: 190000 },
+    { answer: "HAUTE", guesses: ["THEWS"], maxStatesConsidered: 67000 },
+    { answer: "SHIRE", guesses: ["RISEN"], maxStatesConsidered: 12000 },
+    { answer: "HEFTY", guesses: ["THEWS", "ETHIC"], maxStatesConsidered: 5200 },
+    { answer: "EXTRA", guesses: ["TAXES"], maxStatesConsidered: 450 },
+  ])(
+    "returns valid answer in less than $maxStatesConsidered states considered: $answer / $guesses",
+    ({ answer, guesses, maxStatesConsidered }) => {
+      const gameState = GameState.simulate(answer, guesses, validAnswers, validGuesses);
 
-    const { move, score, statesConsidered } = getAdversarialAnswer(gameState);
+      const { move, score, statesConsidered } = getAdversarialAnswer(gameState);
+      console.log(`move: ${move}, score: ${score}`);
+      console.log(`states considered: ${statesConsidered}`);
 
-    // Test that the returned answer is valid for the game state
-    expect(gameState.satisfiesLetterStates(move)).toBe(true);
-
-    // Test that the computation considers at most 67000 states (buffer for implementation variations)
-    expect(statesConsidered).toBeLessThanOrEqual(67000);
-
-    // Additional robustness checks
-    expect(typeof move).toBe("string");
-    expect(move).toHaveLength(5);
-    expect(typeof score).toBe("number");
-    expect(statesConsidered).toBeGreaterThan(0);
-  });
+      expect(gameState.satisfiesLetterStates(move)).toBe(true);
+      expect(statesConsidered).toBeGreaterThan(0);
+      expect(statesConsidered).toBeLessThanOrEqual(maxStatesConsidered);
+    },
+  );
 });

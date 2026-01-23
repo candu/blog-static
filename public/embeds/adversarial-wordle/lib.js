@@ -230,15 +230,15 @@ export const normalizeDistribution = (wordCounts) => {
 };
 
 export const getAvailableAnswers = (gameState) => {
-  // validAnswers already filtered by GameState invariant
   return normalizeDistribution(gameState.validAnswers);
 };
 
 export const getProbableGuesses = (gameState) => {
-  // validGuesses already filtered by GameState invariant
-  const probableGuesses = gameState.validGuesses.filter(
+  const validGuesses = gameState.validGuesses.filter(
     ({ word: guess }) => !gameState.guesses.includes(guess),
   );
+
+  const probableGuesses = validGuesses.toSorted((a, b) => b.count - a.count).slice(0, 100);
 
   return normalizeDistribution(probableGuesses);
 };

@@ -11,19 +11,13 @@ const main = async () => {
     getWordListFromFile(path.join(__dirname, "../../public/data/wordle-guesses.csv")),
   ]);
 
-  const gameState = GameState.simulate(
-    "HAUTE",
-    ["THEWS"],
-    validAnswers,
-    validGuesses,
-  );
+  const gameState = GameState.simulate("HAUTE", ["THEWS"], validAnswers, validGuesses);
 
   const bench = new Bench({ time: 100 });
 
-  bench
-    .add("getAdversarialAnswer - HAUTE after THEWS", () => {
-      getAdversarialAnswer(gameState);
-    });
+  bench.add("getAdversarialAnswer - HAUTE / THEWS", () => {
+    getAdversarialAnswer(gameState);
+  });
 
   await bench.run();
 
