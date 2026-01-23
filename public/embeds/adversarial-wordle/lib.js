@@ -13,24 +13,108 @@ export const LetterState = {
 export const WORD_LENGTH = 5;
 export const MAX_GUESSES = 6;
 
-// Memoization cache for satisfiesLetterStates
-const satisfiesCache = new Map(); // letterStatesHash -> Map<word, boolean>
-const MAX_CACHE_ENTRIES = 10000;
+/**
+ * LRU cache for satisfiesLetterStates results.
+ * Maintains a two-level Map structure with batch eviction for efficiency.
+ */
+class SatisfiesCache {
+  constructor(maxEntries = 10000) {
+    this.maxEntries = maxEntries;
+    // Two-level Map: letterStatesHash -> Map<word, {result, lastUsed}>
+    this.cache = new Map();
+    this.accessCounter = 0; // Monotonic counter for LRU tracking
+  }
+
+  get(letterStatesHash, word) {
+    const innerMap = this.cache.get(letterStatesHash);
+    if (!innerMap) return undefined;
+
+    const entry = innerMap.get(word);
+    if (!entry) return undefined;
+
+    // Mark as recently used
+    entry.lastUsed = ++this.accessCounter;
+    return entry.result;
+  }
+
+  set(letterStatesHash, word, result) {
+    let innerMap = this.cache.get(letterStatesHash);
+    if (!innerMap) {
+      innerMap = new Map();
+      this.cache.set(letterStatesHash, innerMap);
+    }
+
+    innerMap.set(word, {
+      result,
+      lastUsed: ++this.accessCounter,
+    });
+
+    // Batch eviction: only evict when significantly over capacity
+    // This reduces eviction frequency and amortizes the O(n) scan cost
+    const totalSize = this._getTotalSize();
+    if (totalSize > this.maxEntries * 1.2) {
+      // Evict 20% of entries
+      this._evictOldest(Math.floor(this.maxEntries * 0.2));
+    }
+  }
+
+  _getTotalSize() {
+    let total = 0;
+    for (const innerMap of this.cache.values()) {
+      total += innerMap.size;
+    }
+    return total;
+  }
+
+  _evictOldest(count) {
+    // Collect all entries with their access times
+    const entries = [];
+    for (const [hash, innerMap] of this.cache.entries()) {
+      for (const [word, entry] of innerMap.entries()) {
+        entries.push({ hash, word, lastUsed: entry.lastUsed });
+      }
+    }
+
+    // Sort by lastUsed (oldest first)
+    entries.sort((a, b) => a.lastUsed - b.lastUsed);
+
+    // Evict the oldest `count` entries
+    const toEvict = entries.slice(0, count);
+    for (const { hash, word } of toEvict) {
+      const innerMap = this.cache.get(hash);
+      if (innerMap) {
+        innerMap.delete(word);
+        // Clean up empty inner maps
+        if (innerMap.size === 0) {
+          this.cache.delete(hash);
+        }
+      }
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+    this.accessCounter = 0;
+  }
+
+  getStats() {
+    return {
+      letterStatesCount: this.cache.size,
+      totalEntries: this._getTotalSize(),
+      maxEntries: this.maxEntries,
+    };
+  }
+}
+
+// Module-level cache instance
+const satisfiesCache = new SatisfiesCache(10000);
 
 /**
  * Generates a compact hash string for a letterStates array.
- * Format: "position|letter|stateFirstChar,..."
- * Example: "0|A|c,2|B|p,4|C|a" for positions 0,2,4
  */
 function hashLetterStates(letterStates) {
-  const parts = [];
-  for (let i = 0; i < letterStates.length; i++) {
-    const ls = letterStates[i];
-    if (ls !== null) {
-      parts.push(`${i}|${ls.letter}|${ls.state[0]}`);
-    }
-  }
-  return parts.join(',');
+  const parts = letterStates.map((ls) => (ls === null ? "__" : `${ls.letter}${ls.state[0]}`));
+  return parts.join("");
 }
 
 export class LetterStateUtils {
@@ -78,33 +162,19 @@ export class LetterStateUtils {
   }
 
   static satisfiesLetterStates(letterStates, word) {
-    // Generate cache key
     const hash = hashLetterStates(letterStates);
 
-    // Check cache
-    const innerMap = satisfiesCache.get(hash);
-    if (innerMap) {
-      const cached = innerMap.get(word);
-      if (cached !== undefined) {
-        return cached;
-      }
+    // Check cache using new API
+    const cached = satisfiesCache.get(hash, word);
+    if (cached !== undefined) {
+      return cached;
     }
 
     // Cache miss: compute result
     const result = this._satisfiesLetterStatesImpl(letterStates, word);
 
-    // Store in cache
-    let targetMap = innerMap;
-    if (!targetMap) {
-      targetMap = new Map();
-      satisfiesCache.set(hash, targetMap);
-    }
-    targetMap.set(word, result);
-
-    // Evict if cache too large
-    if (this._getCacheTotalSize() > MAX_CACHE_ENTRIES) {
-      satisfiesCache.clear();
-    }
+    // Store in cache (LRU eviction handled internally)
+    satisfiesCache.set(hash, word, result);
 
     return result;
   }
@@ -168,24 +238,12 @@ export class LetterStateUtils {
     return true;
   }
 
-  static _getCacheTotalSize() {
-    let total = 0;
-    for (const innerMap of satisfiesCache.values()) {
-      total += innerMap.size;
-    }
-    return total;
-  }
-
   static clearSatisfiesCache() {
     satisfiesCache.clear();
   }
 
   static getCacheStats() {
-    return {
-      letterStatesCount: satisfiesCache.size,
-      totalEntries: this._getCacheTotalSize(),
-      maxEntries: MAX_CACHE_ENTRIES,
-    };
+    return satisfiesCache.getStats();
   }
 }
 
