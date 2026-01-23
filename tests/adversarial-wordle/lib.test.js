@@ -1,9 +1,13 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GameState,
   LetterState,
   LetterStateUtils,
-} from "../../public/embeds/adversarial-wordle/lib";
+} from "../../public/embeds/adversarial-wordle/lib.js";
+import { getWordListFromFile } from "./helpers";
+
+const __dirname = new URL(".", import.meta.url).pathname;
 
 describe("LetterStateUtils", () => {
   describe("getLetterStates", () => {
@@ -83,14 +87,19 @@ describe("LetterStateUtils", () => {
 });
 
 describe("GameState", () => {
-  describe("satisfiesLetterStates", () => {
+  describe("satisfiesLetterStates", async () => {
+    const [validAnswers, validGuesses] = await Promise.all([
+      getWordListFromFile(path.join(__dirname, "../../public/data/wordle-answers.csv")),
+      getWordListFromFile(path.join(__dirname, "../../public/data/wordle-guesses.csv")),
+    ]);
+
     it.for([
       { answer: "CAIRN", guesses: ["ABASE", "CADDY", "CALIF", "CAPUT", "CANON"] },
       { answer: "REIGN", guesses: ["ROARS", "RECCE", "REDDY", "REWTH", "RENIN"] },
       { answer: "AMPLE", guesses: ["SINGE", "ACKEE", "ADOBE", "AQUAE", "APPLE"] },
       { answer: "RADIO", guesses: ["REBUS", "RAGGA", "RALLY", "RANCH", "RATOO"] },
     ])("handles actual letter states correctly: $answer ($guesses)", ({ answer, guesses }) => {
-      const gameState = new GameState(answer, guesses);
+      const gameState = GameState.simulate(answer, guesses, validAnswers, validGuesses);
 
       expect(gameState.satisfiesLetterStates(answer)).toBe(true);
     });

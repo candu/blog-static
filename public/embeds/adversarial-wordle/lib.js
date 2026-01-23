@@ -178,12 +178,17 @@ export class GameState {
       LetterStateUtils.satisfiesLetterStates(newLetterStates, word),
     );
 
-    return new GameState(
-      this.answer,
-      [...this.guesses, guess],
-      filteredAnswers,
-      filteredGuesses,
-    );
+    return new GameState(this.answer, [...this.guesses, guess], filteredAnswers, filteredGuesses);
+  }
+
+  static simulate(answer, guesses, validAnswers, validGuesses) {
+    let gameState = new GameState(answer, [], validAnswers, validGuesses);
+
+    for (const guess of guesses) {
+      gameState = gameState.withGuess(guess);
+    }
+
+    return gameState;
   }
 
   getLetterStates() {
@@ -753,9 +758,7 @@ export class GameController {
   }
 }
 
-export async function getWordList(url) {
-  const response = await fetch(url);
-  const text = await response.text();
+export function parseWordList(text) {
   return text
     .split("\n")
     .slice(1)
@@ -768,4 +771,10 @@ export async function getWordList(url) {
       return { word, count };
     })
     .filter(({ word, count }) => word.length > 0 && !isNaN(count) && count > 0);
+}
+
+export async function getWordListFromURL(url) {
+  const response = await fetch(url);
+  const text = await response.text();
+  return parseWordList(text);
 }

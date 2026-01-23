@@ -1,9 +1,9 @@
-import { GameController, getWordList } from "./lib.js";
+import { GameController, getWordListFromURL } from "./lib.js";
 
 async function main() {
   const [validAnswers, validGuesses] = await Promise.all([
-    getWordList("../../data/wordle-answers.csv"),
-    getWordList("../../data/wordle-guesses.csv"),
+    getWordListFromURL("../../data/wordle-answers.csv"),
+    getWordListFromURL("../../data/wordle-guesses.csv"),
   ]);
 
   console.log("Answers:", validAnswers);
