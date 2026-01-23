@@ -114,12 +114,12 @@ describe("getAdversarialAnswer", async () => {
   ]);
 
   it.for([
-    // { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 1350000 },
-    { answer: "MERRY", guesses: ["MIRTH"], maxStatesConsidered: 190000 },
-    { answer: "HAUTE", guesses: ["THEWS"], maxStatesConsidered: 67000 },
-    { answer: "SHIRE", guesses: ["RISEN"], maxStatesConsidered: 12000 },
-    { answer: "HEFTY", guesses: ["THEWS", "ETHIC"], maxStatesConsidered: 5200 },
-    { answer: "EXTRA", guesses: ["TAXES"], maxStatesConsidered: 450 },
+    // { answer: "TAKER", guesses: ["CRATE"], maxStatesConsidered: 370000 },
+    { answer: "MERRY", guesses: ["MIRTH"], maxStatesConsidered: 31000 },
+    { answer: "HAUTE", guesses: ["THEWS"], maxStatesConsidered: 20000 },
+    { answer: "SHIRE", guesses: ["RISEN"], maxStatesConsidered: 2000 },
+    { answer: "HEFTY", guesses: ["THEWS", "ETHIC"], maxStatesConsidered: 1200 },
+    { answer: "EXTRA", guesses: ["TAXES"], maxStatesConsidered: 150 },
   ])(
     "returns valid answer in less than $maxStatesConsidered states considered: $answer / $guesses",
     ({ answer, guesses, maxStatesConsidered }) => {
