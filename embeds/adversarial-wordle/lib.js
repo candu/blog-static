@@ -229,11 +229,13 @@ export const normalizeDistribution = (wordCounts) => {
   return wordCounts.map(({ word, count }) => ({ word, count: count / totalCount }));
 };
 
-export const getAvailableAnswers = (gameState) => {
-  return normalizeDistribution(gameState.validAnswers);
+export const getAnswersToEvaluate = (gameState) => {
+  const validAnswers = gameState.validAnswers.toSorted((a, b) => a.count - b.count);
+
+  return normalizeDistribution(validAnswers);
 };
 
-export const getProbableGuesses = (gameState) => {
+export const getGuessesToEvaluate = (gameState) => {
   const validGuesses = gameState.validGuesses.filter(
     ({ word: guess }) => !gameState.guesses.includes(guess),
   );
@@ -267,7 +269,7 @@ export const getAdversarialAnswer = (gameState) => {
 
     if (nodeType === NodeType.ANSWER) {
       // answer: max
-      const nextAnswers = getAvailableAnswers(gameState);
+      const nextAnswers = getAnswersToEvaluate(gameState);
       let bestAnswer = null;
       let bestScore = -Infinity;
 
@@ -295,7 +297,7 @@ export const getAdversarialAnswer = (gameState) => {
     }
 
     // guess: expect
-    const nextGuesses = getProbableGuesses(gameState);
+    const nextGuesses = getGuessesToEvaluate(gameState);
     const n = nextGuesses.length;
 
     // Score bounds for children (ANSWER nodes after this guess)
