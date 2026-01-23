@@ -11,13 +11,22 @@ const main = async () => {
     getWordListFromFile(path.join(__dirname, "../../public/data/wordle-guesses.csv")),
   ]);
 
-  const gameState = GameState.simulate("HAUTE", ["THEWS"], validAnswers, validGuesses);
+  const gameState1 = GameState.simulate("HAUTE", ["THEWS"], validAnswers, validGuesses);
+  const gameState2 = GameState.simulate("HEFTY", ["THEWS", "ETHIC"], validAnswers, validGuesses);
+  const gameState3 = GameState.simulate("EXTRA", ["TAXES"], validAnswers, validGuesses);
 
   const bench = new Bench({ time: 100 });
 
-  bench.add("getAdversarialAnswer - HAUTE / THEWS", () => {
-    getAdversarialAnswer(gameState);
-  });
+  bench
+    .add("getAdversarialAnswer - HAUTE / THEWS", () => {
+      getAdversarialAnswer(gameState1);
+    })
+    .add("getAdversarialAnswer - HEFTY / THEWS, ETHIC", () => {
+      getAdversarialAnswer(gameState2);
+    })
+    .add("getAdversarialAnswer - EXTRA / TAXES", () => {
+      getAdversarialAnswer(gameState3);
+    });
 
   await bench.run();
 
