@@ -13,6 +13,26 @@ export const LetterState = {
 export const WORD_LENGTH = 5;
 export const MAX_GUESSES = 6;
 
+// Memoization cache for satisfiesLetterStates
+const satisfiesCache = new Map(); // letterStatesHash -> Map<word, boolean>
+const MAX_CACHE_ENTRIES = 10000;
+
+/**
+ * Generates a compact hash string for a letterStates array.
+ * Format: "position|letter|stateFirstChar,..."
+ * Example: "0|A|c,2|B|p,4|C|a" for positions 0,2,4
+ */
+function hashLetterStates(letterStates) {
+  const parts = [];
+  for (let i = 0; i < letterStates.length; i++) {
+    const ls = letterStates[i];
+    if (ls !== null) {
+      parts.push(`${i}|${ls.letter}|${ls.state[0]}`);
+    }
+  }
+  return parts.join(',');
+}
+
 export class LetterStateUtils {
   static getLetterStates(answer, word) {
     const letterStates = Array(WORD_LENGTH).fill(null);
@@ -58,6 +78,38 @@ export class LetterStateUtils {
   }
 
   static satisfiesLetterStates(letterStates, word) {
+    // Generate cache key
+    const hash = hashLetterStates(letterStates);
+
+    // Check cache
+    const innerMap = satisfiesCache.get(hash);
+    if (innerMap) {
+      const cached = innerMap.get(word);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+
+    // Cache miss: compute result
+    const result = this._satisfiesLetterStatesImpl(letterStates, word);
+
+    // Store in cache
+    let targetMap = innerMap;
+    if (!targetMap) {
+      targetMap = new Map();
+      satisfiesCache.set(hash, targetMap);
+    }
+    targetMap.set(word, result);
+
+    // Evict if cache too large
+    if (this._getCacheTotalSize() > MAX_CACHE_ENTRIES) {
+      satisfiesCache.clear();
+    }
+
+    return result;
+  }
+
+  static _satisfiesLetterStatesImpl(letterStates, word) {
     const requiredFreqs = {};
     const absent = new Set();
 
@@ -114,6 +166,26 @@ export class LetterStateUtils {
     }
 
     return true;
+  }
+
+  static _getCacheTotalSize() {
+    let total = 0;
+    for (const innerMap of satisfiesCache.values()) {
+      total += innerMap.size;
+    }
+    return total;
+  }
+
+  static clearSatisfiesCache() {
+    satisfiesCache.clear();
+  }
+
+  static getCacheStats() {
+    return {
+      letterStatesCount: satisfiesCache.size,
+      totalEntries: this._getCacheTotalSize(),
+      maxEntries: MAX_CACHE_ENTRIES,
+    };
   }
 }
 
@@ -235,12 +307,16 @@ export const getAnswersToEvaluate = (gameState) => {
   return normalizeDistribution(validAnswers);
 };
 
+const MAX_GUESS_FANOUT = 100;
+
 export const getGuessesToEvaluate = (gameState) => {
   const validGuesses = gameState.validGuesses.filter(
     ({ word: guess }) => !gameState.guesses.includes(guess),
   );
 
-  const probableGuesses = validGuesses.toSorted((a, b) => b.count - a.count).slice(0, 100);
+  const probableGuesses = validGuesses
+    .toSorted((a, b) => b.count - a.count)
+    .slice(0, MAX_GUESS_FANOUT);
 
   return normalizeDistribution(probableGuesses);
 };

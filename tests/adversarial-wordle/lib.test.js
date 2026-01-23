@@ -1,5 +1,5 @@
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   GameState,
   getAdversarialAnswer,
@@ -83,6 +83,86 @@ describe("LetterStateUtils", () => {
         { letter: "E", state: LetterState.ABSENT },
       ];
       expect(LetterStateUtils.satisfiesLetterStates(letterStates, guess)).toBe(expected);
+    });
+  });
+
+  describe("satisfiesLetterStates memoization", () => {
+    beforeEach(() => {
+      LetterStateUtils.clearSatisfiesCache();
+    });
+
+    it("caches results for repeated calls", () => {
+      const letterStates = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+
+      LetterStateUtils.satisfiesLetterStates(letterStates, "ABCDE");
+      const stats1 = LetterStateUtils.getCacheStats();
+      expect(stats1.totalEntries).toBe(1);
+
+      // Second call should hit cache
+      LetterStateUtils.satisfiesLetterStates(letterStates, "ABCDE");
+      const stats2 = LetterStateUtils.getCacheStats();
+      expect(stats2.totalEntries).toBe(1); // No new entries
+    });
+
+    it("distinguishes different letterStates patterns", () => {
+      const ls1 = [{ letter: "A", state: LetterState.CORRECT }, null, null, null, null];
+      const ls2 = [{ letter: "B", state: LetterState.CORRECT }, null, null, null, null];
+
+      LetterStateUtils.satisfiesLetterStates(ls1, "ABCDE");
+      LetterStateUtils.satisfiesLetterStates(ls2, "ABCDE");
+
+      const stats = LetterStateUtils.getCacheStats();
+      expect(stats.letterStatesCount).toBe(2); // Two different hashes
+    });
+
+    it("handles empty letterStates", () => {
+      const emptyLS = [null, null, null, null, null];
+      const result = LetterStateUtils.satisfiesLetterStates(emptyLS, "ABCDE");
+      expect(result).toBe(true); // No constraints = all words satisfy
+    });
+
+    it("caches different words with same letterStates separately", () => {
+      const letterStates = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+
+      LetterStateUtils.satisfiesLetterStates(letterStates, "ABCDE");
+      LetterStateUtils.satisfiesLetterStates(letterStates, "AFGHT");
+
+      const stats = LetterStateUtils.getCacheStats();
+      expect(stats.letterStatesCount).toBe(1); // Same letterStates hash
+      expect(stats.totalEntries).toBe(2); // Two different words
+    });
+
+    it("produces consistent results with and without cache", () => {
+      const letterStates = [
+        { letter: "A", state: LetterState.CORRECT },
+        { letter: "B", state: LetterState.ABSENT },
+        { letter: "C", state: LetterState.PRESENT },
+        { letter: "D", state: LetterState.CORRECT },
+        { letter: "E", state: LetterState.ABSENT },
+      ];
+
+      LetterStateUtils.clearSatisfiesCache();
+
+      // First call (cache miss)
+      const result1 = LetterStateUtils.satisfiesLetterStates(letterStates, "ACFDG");
+      // Second call (cache hit)
+      const result2 = LetterStateUtils.satisfiesLetterStates(letterStates, "ACFDG");
+
+      expect(result1).toBe(true);
+      expect(result2).toBe(true);
+      expect(result1).toBe(result2);
     });
   });
 });
