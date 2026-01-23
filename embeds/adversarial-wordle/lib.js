@@ -118,9 +118,11 @@ export class LetterStateUtils {
 }
 
 export class GameState {
-  constructor(answer, guesses = []) {
+  constructor(answer, guesses, validAnswers, validGuesses) {
     this.answer = answer;
     this.guesses = guesses;
+    this.validAnswers = validAnswers;
+    this.validGuesses = validGuesses;
   }
 
   getStatus() {
@@ -147,7 +149,12 @@ export class GameState {
       throw new Error(`invalid answer ${answer}: wrong length`);
     }
 
-    return new GameState(answer, [...this.guesses]);
+    // Validate that answer is in validAnswers
+    if (!this.validAnswers.some(({ word }) => word === answer)) {
+      throw new Error(`invalid answer ${answer}: not in validAnswers`);
+    }
+
+    return new GameState(answer, [...this.guesses], this.validAnswers, this.validGuesses);
   }
 
   withGuess(guess) {
@@ -159,7 +166,24 @@ export class GameState {
       throw new Error(`invalid guess ${guess}: wrong length`);
     }
 
-    return new GameState(this.answer, [...this.guesses, guess]);
+    // Get letter states for this guess only
+    const newLetterStates = LetterStateUtils.getLetterStates(this.answer, guess);
+
+    // Filter validAnswers and validGuesses based on NEW letter states only
+    const filteredAnswers = this.validAnswers.filter(({ word }) =>
+      LetterStateUtils.satisfiesLetterStates(newLetterStates, word),
+    );
+
+    const filteredGuesses = this.validGuesses.filter(({ word }) =>
+      LetterStateUtils.satisfiesLetterStates(newLetterStates, word),
+    );
+
+    return new GameState(
+      this.answer,
+      [...this.guesses, guess],
+      filteredAnswers,
+      filteredGuesses,
+    );
   }
 
   getLetterStates() {
@@ -193,18 +217,16 @@ export const normalizeDistribution = (wordCounts) => {
   return wordCounts.map(({ word, count }) => ({ word, count: count / totalCount }));
 };
 
-export const getAvailableAnswers = (validAnswers, gameState) => {
-  const availableAnswers = validAnswers.filter(({ word: answer }) =>
-    gameState.satisfiesLetterStates(answer),
-  );
-
-  return normalizeDistribution(availableAnswers);
+export const getAvailableAnswers = (gameState) => {
+  // validAnswers already filtered by GameState invariant
+  return normalizeDistribution(gameState.validAnswers);
 };
 
-export const getProbableGuesses = (validGuesses, gameState) => {
-  const probableGuesses = validGuesses.filter(
-    ({ word: guess }) =>
-      !gameState.guesses.includes(guess) && gameState.satisfiesLetterStates(guess),
+export const getProbableGuesses = (gameState) => {
+  // validGuesses already filtered by GameState invariant
+  // Just exclude already-made guesses
+  const probableGuesses = gameState.validGuesses.filter(
+    ({ word: guess }) => !gameState.guesses.includes(guess),
   );
 
   return normalizeDistribution(probableGuesses);
@@ -213,10 +235,10 @@ export const getProbableGuesses = (validGuesses, gameState) => {
 // expectimax
 // value is average number of remaining guesses
 // tree: answer (max) -> guess (expect) -> ...
-export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
+export const getAdversarialAnswer = (gameState) => {
   let statesConsidered = 0;
 
-  const evaluateNode = (validAnswers, validGuesses, gameState, nodeType, alpha, beta) => {
+  const evaluateNode = (gameState, nodeType, alpha, beta) => {
     statesConsidered += 1;
     if (statesConsidered % 10000 === 0) {
       console.log(`states considered: ${statesConsidered}`);
@@ -234,7 +256,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
 
     if (nodeType === NodeType.ANSWER) {
       // answer: max
-      const nextAnswers = getAvailableAnswers(validAnswers, gameState);
+      const nextAnswers = getAvailableAnswers(gameState);
       let bestAnswer = null;
       let bestScore = -Infinity;
 
@@ -242,14 +264,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
         const { word: nextAnswerWord } = nextAnswer;
 
         const nextGameState = gameState.withAnswer(nextAnswerWord);
-        const { score } = evaluateNode(
-          nextAnswers,
-          validGuesses,
-          nextGameState,
-          NodeType.GUESS,
-          alpha,
-          beta,
-        );
+        const { score } = evaluateNode(nextGameState, NodeType.GUESS, alpha, beta);
 
         if (bestAnswer === null || score > bestScore) {
           bestAnswer = nextAnswerWord;
@@ -269,7 +284,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     }
 
     // guess: expect
-    const nextGuesses = getProbableGuesses(validGuesses, gameState);
+    const nextGuesses = getProbableGuesses(gameState);
     const n = nextGuesses.length;
 
     // Score bounds for children (ANSWER nodes after this guess)
@@ -284,14 +299,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
       const { word: nextGuessWord, count: prob } = nextGuess;
       const nextGameState = gameState.withGuess(nextGuessWord);
 
-      const { score } = evaluateNode(
-        validAnswers,
-        nextGuesses,
-        nextGameState,
-        NodeType.ANSWER,
-        alpha,
-        beta,
-      );
+      const { score } = evaluateNode(nextGameState, NodeType.ANSWER, alpha, beta);
 
       partialSum += prob * score;
       partialProb += prob;
@@ -316,14 +324,7 @@ export const getAdversarialAnswer = (validAnswers, validGuesses, gameState) => {
     return { move: null, score: 1 + partialSum };
   };
 
-  const { move, score } = evaluateNode(
-    validAnswers,
-    validGuesses,
-    gameState,
-    NodeType.ANSWER,
-    -Infinity,
-    Infinity,
-  );
+  const { move, score } = evaluateNode(gameState, NodeType.ANSWER, -Infinity, Infinity);
 
   return { move, score, statesConsidered };
 };
@@ -334,7 +335,7 @@ export class Game {
     this.validGuesses = validGuesses;
 
     const answer = this._getRandomAnswer();
-    this.state = new GameState(answer, []);
+    this.state = new GameState(answer, [], validAnswers, validGuesses);
     this.currentGuess = "";
   }
 
@@ -348,11 +349,7 @@ export class Game {
   }
 
   _getAdversarialAnswer() {
-    const { move, score, statesConsidered } = getAdversarialAnswer(
-      this.validAnswers,
-      this.validGuesses,
-      this.state,
-    );
+    const { move, score, statesConsidered } = getAdversarialAnswer(this.state);
 
     console.log(`move: ${move}, score: ${score}`);
     console.log(`states considered: ${statesConsidered}`);
