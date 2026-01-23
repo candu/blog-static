@@ -13,7 +13,116 @@ export const LetterState = {
 export const WORD_LENGTH = 5;
 export const MAX_GUESSES = 6;
 
+/**
+ * LRU cache for satisfiesLetterStates results.
+ * Maintains a two-level Map structure with batch eviction for efficiency.
+ */
+class SatisfiesCache {
+  constructor(maxEntries = 10000) {
+    this.maxEntries = maxEntries;
+    // Two-level Map: letterStatesHash -> Map<word, {result, lastUsed}>
+    this.cache = new Map();
+    this.accessCounter = 0; // Monotonic counter for LRU tracking
+  }
+
+  get(letterStatesHash, word) {
+    const innerMap = this.cache.get(letterStatesHash);
+    if (!innerMap) return undefined;
+
+    const entry = innerMap.get(word);
+    if (!entry) return undefined;
+
+    // Mark as recently used
+    entry.lastUsed = ++this.accessCounter;
+    return entry.result;
+  }
+
+  set(letterStatesHash, word, result) {
+    let innerMap = this.cache.get(letterStatesHash);
+    if (!innerMap) {
+      innerMap = new Map();
+      this.cache.set(letterStatesHash, innerMap);
+    }
+
+    innerMap.set(word, {
+      result,
+      lastUsed: ++this.accessCounter,
+    });
+
+    // Batch eviction: only evict when significantly over capacity
+    // This reduces eviction frequency and amortizes the O(n) scan cost
+    const totalSize = this._getTotalSize();
+    if (totalSize > this.maxEntries * 1.2) {
+      // Evict 20% of entries
+      this._evictOldest(Math.floor(this.maxEntries * 0.2));
+    }
+  }
+
+  _getTotalSize() {
+    let total = 0;
+    for (const innerMap of this.cache.values()) {
+      total += innerMap.size;
+    }
+    return total;
+  }
+
+  _evictOldest(count) {
+    // Collect all entries with their access times
+    const entries = [];
+    for (const [hash, innerMap] of this.cache.entries()) {
+      for (const [word, entry] of innerMap.entries()) {
+        entries.push({ hash, word, lastUsed: entry.lastUsed });
+      }
+    }
+
+    // Sort by lastUsed (oldest first)
+    entries.sort((a, b) => a.lastUsed - b.lastUsed);
+
+    // Evict the oldest `count` entries
+    const toEvict = entries.slice(0, count);
+    for (const { hash, word } of toEvict) {
+      const innerMap = this.cache.get(hash);
+      if (innerMap) {
+        innerMap.delete(word);
+        // Clean up empty inner maps
+        if (innerMap.size === 0) {
+          this.cache.delete(hash);
+        }
+      }
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+    this.accessCounter = 0;
+  }
+
+  getStats() {
+    return {
+      letterStatesCount: this.cache.size,
+      totalEntries: this._getTotalSize(),
+      maxEntries: this.maxEntries,
+    };
+  }
+}
+
+// Module-level cache instance
+const satisfiesCache = new SatisfiesCache(10000);
+
+/**
+ * Generates a compact hash string for a letterStates array.
+ */
+function hashLetterStates(letterStates) {
+  const parts = letterStates.map((ls) => (ls === null ? "__" : `${ls.letter}${ls.state[0]}`));
+  return parts.join("");
+}
+
 export class LetterStateUtils {
+  // Reusable data structures for satisfiesLetterStates (avoids allocations)
+  static _reusableRequiredFreqs = new Uint8Array(26);
+  static _reusableWordFreqs = new Uint8Array(26);
+  static _reusableAbsent = new Set();
+
   static getLetterStates(answer, word) {
     const letterStates = Array(WORD_LENGTH).fill(null);
 
@@ -58,62 +167,112 @@ export class LetterStateUtils {
   }
 
   static satisfiesLetterStates(letterStates, word) {
-    const requiredFreqs = {};
-    const absent = new Set();
+    const hash = hashLetterStates(letterStates);
 
-    // first pass: check CORRECT and PRESENT letters, collect PRESENT / ABSENT info and counts
-    for (let j = 0; j < WORD_LENGTH; j++) {
-      const letterState = letterStates[j];
-      if (letterState === null) {
-        continue;
-      }
-
-      const { letter, state } = letterState;
-
-      if (state === LetterState.CORRECT) {
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        if (word[j] !== letter) {
-          return false;
-        }
-      } else if (state === LetterState.PRESENT) {
-        requiredFreqs[letter] = (requiredFreqs[letter] || 0) + 1;
-        if (word[j] === letter) {
-          return false;
-        }
-      } else if (state === LetterState.ABSENT) {
-        absent.add(letter);
-      }
+    // Check cache using new API
+    const cached = satisfiesCache.get(hash, word);
+    if (cached !== undefined) {
+      return cached;
     }
 
-    // second pass: check ABSENT letters
-    for (const letter of word) {
-      const requiredCount = requiredFreqs[letter] || 0;
-      if (requiredCount > 0) {
-        continue;
+    // Cache miss: compute result
+    const result = this._satisfiesLetterStatesImpl(letterStates, word);
+
+    // Store in cache (LRU eviction handled internally)
+    satisfiesCache.set(hash, word, result);
+
+    return result;
+  }
+
+  static _idx(letter) {
+    return letter.charCodeAt(0) - 65; // 'A' = 65
+  }
+
+  static _chr(i) {
+    return String.fromCharCode(65 + i);
+  }
+
+  static _satisfiesLetterStatesImpl(letterStates, word) {
+    // OPTIMIZATION 1a: Early termination - check CORRECT and PRESENT positions first
+    for (let j = 0; j < WORD_LENGTH; j++) {
+      const letterState = letterStates[j];
+      if (letterState?.state === LetterState.CORRECT && word[j] !== letterState.letter) {
+        return false;
       }
 
-      if (absent.has(letter)) {
+      if (letterState?.state === LetterState.PRESENT && word[j] === letterState.letter) {
         return false;
       }
     }
 
-    // check frequencies
-    const wordFreqs = {};
-    for (const letter of word) {
-      wordFreqs[letter] = (wordFreqs[letter] || 0) + 1;
+    // OPTIMIZATION 1b & 1c: Reuse typed arrays and Set (class-level)
+    this._reusableRequiredFreqs.fill(0);
+    this._reusableWordFreqs.fill(0);
+    this._reusableAbsent.clear();
+
+    // First pass: collect CORRECT and PRESENT constraints, ABSENT letters
+    for (let j = 0; j < WORD_LENGTH; j++) {
+      const letterState = letterStates[j];
+      if (letterState === null) continue;
+
+      const { letter, state } = letterState;
+      const i = this._idx(letter);
+
+      if (state === LetterState.CORRECT || state === LetterState.PRESENT) {
+        this._reusableRequiredFreqs[i]++;
+        // Already checked above in early termination
+      } else if (state === LetterState.ABSENT) {
+        this._reusableAbsent.add(letter);
+      }
     }
-    for (const [letter, requiredCount] of Object.entries(requiredFreqs)) {
-      const wordCount = wordFreqs[letter] || 0;
-      if (absent.has(letter)) {
+
+    // Second pass: check ABSENT letters in word
+    for (const letter of word) {
+      const i = this._idx(letter);
+      if (this._reusableRequiredFreqs[i] > 0) {
+        continue; // This letter is required, so it's allowed
+      }
+      if (this._reusableAbsent.has(letter)) {
+        return false; // Word contains absent letter
+      }
+    }
+
+    // Build word frequency map
+    for (const letter of word) {
+      const i = this._idx(letter);
+      this._reusableWordFreqs[i]++;
+    }
+
+    // Check frequency requirements
+    for (let i = 0; i < 26; i++) {
+      const requiredCount = this._reusableRequiredFreqs[i];
+      if (requiredCount === 0) continue;
+
+      const letter = this._chr(i);
+      const wordCount = this._reusableWordFreqs[i];
+
+      if (this._reusableAbsent.has(letter)) {
+        // Exact frequency required
         if (wordCount !== requiredCount) {
           return false;
         }
-      } else if (wordCount < requiredCount) {
-        return false;
+      } else {
+        // Minimum frequency required
+        if (wordCount < requiredCount) {
+          return false;
+        }
       }
     }
 
     return true;
+  }
+
+  static clearSatisfiesCache() {
+    satisfiesCache.clear();
+  }
+
+  static getCacheStats() {
+    return satisfiesCache.getStats();
   }
 }
 
@@ -235,12 +394,16 @@ export const getAnswersToEvaluate = (gameState) => {
   return normalizeDistribution(validAnswers);
 };
 
+const MAX_GUESS_FANOUT = 100;
+
 export const getGuessesToEvaluate = (gameState) => {
   const validGuesses = gameState.validGuesses.filter(
     ({ word: guess }) => !gameState.guesses.includes(guess),
   );
 
-  const probableGuesses = validGuesses.toSorted((a, b) => b.count - a.count).slice(0, 100);
+  const probableGuesses = validGuesses
+    .toSorted((a, b) => b.count - a.count)
+    .slice(0, MAX_GUESS_FANOUT);
 
   return normalizeDistribution(probableGuesses);
 };
@@ -253,7 +416,7 @@ export const getAdversarialAnswer = (gameState) => {
 
   const evaluateNode = (gameState, nodeType, alpha, beta) => {
     statesConsidered += 1;
-    if (statesConsidered % 10000 === 0) {
+    if (statesConsidered % 100000 === 0) {
       console.log(`states considered: ${statesConsidered}`);
     }
 
