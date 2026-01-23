@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GameState,
+  getAdversarialAnswer,
   LetterState,
   LetterStateUtils,
 } from "../../public/embeds/adversarial-wordle/lib.js";
@@ -103,5 +104,32 @@ describe("GameState", () => {
 
       expect(gameState.satisfiesLetterStates(answer)).toBe(true);
     });
+  });
+});
+
+describe("getAdversarialAnswer", async () => {
+  const [validAnswers, validGuesses] = await Promise.all([
+    getWordListFromFile(path.join(__dirname, "../../public/data/wordle-answers.csv")),
+    getWordListFromFile(path.join(__dirname, "../../public/data/wordle-guesses.csv")),
+  ]);
+
+  it.for([
+    { answer: "HAUTE", guesses: ["THEWS"] },
+  ])("returns valid answer and meets performance threshold: $answer after $guesses", ({ answer, guesses }) => {
+    const gameState = GameState.simulate(answer, guesses, validAnswers, validGuesses);
+
+    const { move, score, statesConsidered } = getAdversarialAnswer(gameState);
+
+    // Test that the returned answer is valid for the game state
+    expect(gameState.satisfiesLetterStates(move)).toBe(true);
+
+    // Test that the computation considers at most 67000 states (buffer for implementation variations)
+    expect(statesConsidered).toBeLessThanOrEqual(67000);
+
+    // Additional robustness checks
+    expect(typeof move).toBe("string");
+    expect(move).toHaveLength(5);
+    expect(typeof score).toBe("number");
+    expect(statesConsidered).toBeGreaterThan(0);
   });
 });
