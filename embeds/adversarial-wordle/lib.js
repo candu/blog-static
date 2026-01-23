@@ -18,11 +18,13 @@ export const MAX_GUESSES = 6;
  * Maintains a two-level Map structure with batch eviction for efficiency.
  */
 class SatisfiesCache {
-  constructor(maxEntries = 10000) {
+  constructor(maxEntries = 10000, overheadFactor = 0.2) {
     this.maxEntries = maxEntries;
+    this.overheadFactor = overheadFactor;
     // Two-level Map: letterStatesHash -> Map<word, {result, lastUsed}>
     this.cache = new Map();
     this.accessCounter = 0; // Monotonic counter for LRU tracking
+    this.totalEntries = 0;
   }
 
   get(letterStatesHash, word) {
@@ -51,19 +53,10 @@ class SatisfiesCache {
 
     // Batch eviction: only evict when significantly over capacity
     // This reduces eviction frequency and amortizes the O(n) scan cost
-    const totalSize = this._getTotalSize();
-    if (totalSize > this.maxEntries * 1.2) {
-      // Evict 20% of entries
-      this._evictOldest(Math.floor(this.maxEntries * 0.2));
+    this.totalEntries++;
+    if (this.totalEntries > this.maxEntries * (1 + this.overheadFactor)) {
+      this._evictOldest(Math.floor(this.maxEntries * this.overheadFactor));
     }
-  }
-
-  _getTotalSize() {
-    let total = 0;
-    for (const innerMap of this.cache.values()) {
-      total += innerMap.size;
-    }
-    return total;
   }
 
   _evictOldest(count) {
@@ -84,6 +77,8 @@ class SatisfiesCache {
       const innerMap = this.cache.get(hash);
       if (innerMap) {
         innerMap.delete(word);
+        this.totalEntries--;
+
         // Clean up empty inner maps
         if (innerMap.size === 0) {
           this.cache.delete(hash);
@@ -95,19 +90,20 @@ class SatisfiesCache {
   clear() {
     this.cache.clear();
     this.accessCounter = 0;
+    this.totalEntries = 0;
   }
 
   getStats() {
     return {
       letterStatesCount: this.cache.size,
-      totalEntries: this._getTotalSize(),
+      totalEntries: this.totalEntries,
       maxEntries: this.maxEntries,
     };
   }
 }
 
 // Module-level cache instance
-const satisfiesCache = new SatisfiesCache(10000);
+const satisfiesCache = new SatisfiesCache(100000, 0.25);
 
 /**
  * Generates a compact hash string for a letterStates array.
@@ -193,7 +189,7 @@ export class LetterStateUtils {
   }
 
   static _satisfiesLetterStatesImpl(letterStates, word) {
-    // OPTIMIZATION 1a: Early termination - check CORRECT and PRESENT positions first
+    // Early termination - check CORRECT and PRESENT positions first
     for (let j = 0; j < WORD_LENGTH; j++) {
       const letterState = letterStates[j];
       if (letterState?.state === LetterState.CORRECT && word[j] !== letterState.letter) {
@@ -205,7 +201,7 @@ export class LetterStateUtils {
       }
     }
 
-    // OPTIMIZATION 1b & 1c: Reuse typed arrays and Set (class-level)
+    // Reuse typed arrays and Set (class-level)
     this._reusableRequiredFreqs.fill(0);
     this._reusableWordFreqs.fill(0);
     this._reusableAbsent.clear();
