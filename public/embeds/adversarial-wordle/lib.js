@@ -20,7 +20,7 @@ export const MAX_GUESSES = 6;
  * Used to efficiently find the k oldest cache entries without sorting all entries.
  * Space: O(k), Time: O(n log k) to find k oldest from n entries.
  */
-class MaxHeap {
+export class MaxHeap {
   constructor(maxSize) {
     this.heap = [];
     this.maxSize = maxSize;
@@ -81,7 +81,7 @@ class MaxHeap {
  * LRU cache for satisfiesLetterStates results.
  * Maintains a two-level Map structure with batch eviction for efficiency.
  */
-class SatisfiesCache {
+export class SatisfiesCache {
   constructor(maxEntries = 10000, overheadFactor = 0.2) {
     this.maxEntries = maxEntries;
     this.overheadFactor = overheadFactor;
