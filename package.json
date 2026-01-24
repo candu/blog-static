@@ -7,11 +7,7 @@
   "author": "Evan Savage",
   "scripts": {
     "serve": "http-server -p 8080",
-    "test": "vitest",
-    "profile": "node scripts/profile-adversarial-answer.js",
-    "profile:cpu": "node --cpu-prof scripts/profile-adversarial-answer-cpu.js",
-    "profile:inspect": "node --inspect-brk scripts/profile-adversarial-answer-cpu.js",
-    "profile:heap": "node --heap-prof scripts/profile-adversarial-answer-cpu.js"
+    "test": "vitest"
   },
   "devDependencies": {
     "eslint": "^9.1.0",
