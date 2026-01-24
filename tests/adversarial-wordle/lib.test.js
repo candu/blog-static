@@ -13,6 +13,131 @@ import { getWordListFromFile } from "./helpers";
 const __dirname = new URL(".", import.meta.url).pathname;
 
 describe("LetterStateUtils", () => {
+  describe("hashLetterStates", () => {
+    it("is deterministic for same input", () => {
+      const letterStates = [
+        { letter: "A", state: LetterState.CORRECT },
+        { letter: "B", state: LetterState.ABSENT },
+        { letter: "C", state: LetterState.PRESENT },
+        null,
+        null,
+      ];
+
+      const hash1 = LetterStateUtils.hashLetterStates(letterStates);
+      const hash2 = LetterStateUtils.hashLetterStates(letterStates);
+
+      expect(hash1).toBe(hash2);
+    });
+
+    it("produces different hashes for different letter states", () => {
+      const ls1 = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+      const ls2 = [
+        { letter: "B", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+
+      const hash1 = LetterStateUtils.hashLetterStates(ls1);
+      const hash2 = LetterStateUtils.hashLetterStates(ls2);
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it("produces different hashes for different states of same letter", () => {
+      const ls1 = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+      const ls2 = [
+        { letter: "A", state: LetterState.PRESENT },
+        null,
+        null,
+        null,
+        null,
+      ];
+
+      const hash1 = LetterStateUtils.hashLetterStates(ls1);
+      const hash2 = LetterStateUtils.hashLetterStates(ls2);
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it("produces different hashes for different positions", () => {
+      const ls1 = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+        null,
+      ];
+      const ls2 = [
+        null,
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        null,
+        null,
+      ];
+
+      const hash1 = LetterStateUtils.hashLetterStates(ls1);
+      const hash2 = LetterStateUtils.hashLetterStates(ls2);
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it("handles all-null letterStates", () => {
+      const letterStates = [null, null, null, null, null];
+
+      const hash = LetterStateUtils.hashLetterStates(letterStates);
+
+      expect(typeof hash).toBe("number");
+      expect(hash).toBe(0);
+    });
+
+    it("handles mixed null and non-null entries", () => {
+      const letterStates = [
+        { letter: "A", state: LetterState.CORRECT },
+        null,
+        { letter: "C", state: LetterState.PRESENT },
+        null,
+        { letter: "E", state: LetterState.ABSENT },
+      ];
+
+      const hash = LetterStateUtils.hashLetterStates(letterStates);
+
+      expect(typeof hash).toBe("number");
+      expect(Number.isSafeInteger(hash)).toBe(true);
+      expect(hash).toBeGreaterThan(0);
+    });
+
+    it("produces consistent hash for complex letterStates", () => {
+      const letterStates = [
+        { letter: "S", state: LetterState.CORRECT },
+        { letter: "T", state: LetterState.ABSENT },
+        { letter: "A", state: LetterState.PRESENT },
+        { letter: "R", state: LetterState.CORRECT },
+        { letter: "E", state: LetterState.ABSENT },
+      ];
+
+      const hash1 = LetterStateUtils.hashLetterStates(letterStates);
+      const hash2 = LetterStateUtils.hashLetterStates(letterStates);
+      const hash3 = LetterStateUtils.hashLetterStates(letterStates);
+
+      expect(hash1).toBe(hash2);
+      expect(hash2).toBe(hash3);
+    });
+  });
+
   describe("getLetterStates", () => {
     it("returns all null for empty guess", () => {
       const answer = "STARE";
