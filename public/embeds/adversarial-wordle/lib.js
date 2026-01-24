@@ -59,13 +59,17 @@ export class MaxHeap {
       const rightChild = 2 * index + 2;
       let largest = index;
 
-      if (leftChild < this.heap.length &&
-          this.heap[leftChild].lastUsed > this.heap[largest].lastUsed) {
+      if (
+        leftChild < this.heap.length &&
+        this.heap[leftChild].lastUsed > this.heap[largest].lastUsed
+      ) {
         largest = leftChild;
       }
 
-      if (rightChild < this.heap.length &&
-          this.heap[rightChild].lastUsed > this.heap[largest].lastUsed) {
+      if (
+        rightChild < this.heap.length &&
+        this.heap[rightChild].lastUsed > this.heap[largest].lastUsed
+      ) {
         largest = rightChild;
       }
 
@@ -196,7 +200,8 @@ export class LetterStateUtils {
           value = 1 + letterCode; // 1-26
         } else if (ls.state === LetterState.PRESENT) {
           value = 27 + letterCode; // 27-52
-        } else { // LetterState.ABSENT
+        } else {
+          // LetterState.ABSENT
           value = 53 + letterCode; // 53-78
         }
       }
@@ -490,6 +495,8 @@ export const getGuessesToEvaluate = (gameState) => {
   return normalizeDistribution(probableGuesses);
 };
 
+const HEURISTIC_MAX = [4, 3, 3, 2, 2, 1];
+
 // expectimax
 // value is average number of remaining guesses
 // tree: answer (max) -> guess (expect) -> ...
@@ -548,20 +555,12 @@ export const getAdversarialAnswer = (gameState) => {
     // Score bounds for children (ANSWER nodes after this guess)
     const numGuessesAlreadyMade = gameState.guesses.length;
     const minChildScore = 0; // best case: WON immediately
-    const maxChildScore = MAX_GUESSES - numGuessesAlreadyMade; // worst case: all remaining guesses
+    const maxChildScore = HEURISTIC_MAX[numGuessesAlreadyMade];
 
     let partialSum = 0.0;
     let partialProb = 0.0;
 
     for (const nextGuess of nextGuesses) {
-      const { word: nextGuessWord, count: prob } = nextGuess;
-      const nextGameState = gameState.withGuess(nextGuessWord);
-
-      const { score } = evaluateNode(nextGameState, NodeType.ANSWER, alpha, beta);
-
-      partialSum += prob * score;
-      partialProb += prob;
-
       const optimisticAvg = partialSum + (1 - partialProb) * maxChildScore;
       const optimisticFinalScore = 1 + optimisticAvg;
 
@@ -577,6 +576,14 @@ export const getAdversarialAnswer = (gameState) => {
       if (pessimisticFinalScore >= beta) {
         return { move: null, score: pessimisticFinalScore };
       }
+
+      const { word: nextGuessWord, count: prob } = nextGuess;
+      const nextGameState = gameState.withGuess(nextGuessWord);
+
+      const { score } = evaluateNode(nextGameState, NodeType.ANSWER, alpha, beta);
+
+      partialSum += prob * score;
+      partialProb += prob;
     }
 
     return { move: null, score: 1 + partialSum };
