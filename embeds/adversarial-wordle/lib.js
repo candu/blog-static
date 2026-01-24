@@ -169,27 +169,41 @@ export class SatisfiesCache {
 // Module-level cache instance
 const satisfiesCache = new SatisfiesCache(100000, 0.25);
 
-/**
- * Generates a compact hash string for a letterStates array.
- */
-function hashLetterStates(letterStates) {
-  let hash = "";
-  for (let i = 0; i < letterStates.length; i++) {
-    const ls = letterStates[i];
-    if (ls === null) {
-      hash += "__";
-    } else {
-      hash += ls.letter + ls.state[0];
-    }
-  }
-  return hash;
-}
-
 export class LetterStateUtils {
   // Reusable data structures for satisfiesLetterStates (avoids allocations)
   static _reusableRequiredFreqs = new Uint8Array(26);
   static _reusableWordFreqs = new Uint8Array(26);
   static _reusableAbsent = new Set();
+
+  /**
+   * Generates a compact numeric hash for a letterStates array.
+   * Uses base-79 encoding (0-78 per position), total ~35 bits for 5 positions.
+   *
+   * Encoding per position:
+   * - 0: null (no constraint)
+   * - 1-26: CORRECT (A=1, B=2, ..., Z=26)
+   * - 27-52: PRESENT (A=27, B=28, ..., Z=52)
+   * - 53-78: ABSENT (A=53, B=54, ..., Z=78)
+   */
+  static hashLetterStates(letterStates) {
+    let hash = 0;
+    for (let i = 0; i < letterStates.length; i++) {
+      const ls = letterStates[i];
+      let value = 0;
+      if (ls !== null) {
+        const letterCode = this._idx(ls.letter);
+        if (ls.state === LetterState.CORRECT) {
+          value = 1 + letterCode; // 1-26
+        } else if (ls.state === LetterState.PRESENT) {
+          value = 27 + letterCode; // 27-52
+        } else { // LetterState.ABSENT
+          value = 53 + letterCode; // 53-78
+        }
+      }
+      hash = hash * 79 + value;
+    }
+    return hash;
+  }
 
   static getLetterStates(answer, word) {
     const letterStates = Array(WORD_LENGTH).fill(null);
@@ -235,7 +249,7 @@ export class LetterStateUtils {
   }
 
   static satisfiesLetterStates(letterStates, word) {
-    const hash = hashLetterStates(letterStates);
+    const hash = this.hashLetterStates(letterStates);
 
     // Check cache using new API
     const cached = satisfiesCache.get(hash, word);
