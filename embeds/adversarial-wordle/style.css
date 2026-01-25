@@ -13,6 +13,7 @@ body {
 
 .game-container {
   width: 100%;
+  min-width: 300px;
   max-width: 500px;
   margin: 0 auto;
   display: flex;
@@ -336,24 +337,49 @@ body {
 }
 
 /* Responsive adjustments */
-@media (max-width: 400px) {
+@media (max-width: 500px) {
   .tile {
-    width: 52px;
-    height: 52px;
-    font-size: 28px;
+    width: 56px;
+    height: 56px;
+    font-size: 30px;
   }
 
   .key {
-    height: 50px;
-    min-width: 32px;
-    max-width: 32px;
-    font-size: 12px;
+    height: 52px;
+    min-width: 36px;
+    max-width: 36px;
+    font-size: 13px;
   }
 
   .key.key-wide {
-    min-width: 52px;
-    max-width: 52px;
+    min-width: 58px;
+    max-width: 58px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 400px) {
+  .tile {
+    width: 50px;
+    height: 50px;
+    font-size: 26px;
+  }
+
+  .key {
+    height: 48px;
+    min-width: 28px;
+    max-width: 28px;
+    font-size: 11px;
+  }
+
+  .key.key-wide {
+    min-width: 48px;
+    max-width: 48px;
     font-size: 10px;
+  }
+
+  .keyboard-row {
+    gap: 4px;
   }
 
   .stats-screen {
@@ -367,6 +393,43 @@ body {
   .btn {
     height: 44px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 350px) {
+  .header h1 {
+    font-size: 20px;
+  }
+
+  .tile {
+    width: 46px;
+    height: 46px;
+    font-size: 24px;
+  }
+
+  .row {
+    gap: 4px;
+  }
+
+  .key {
+    height: 44px;
+    min-width: 24px;
+    max-width: 24px;
+    font-size: 10px;
+  }
+
+  .key.key-wide {
+    min-width: 42px;
+    max-width: 42px;
+    font-size: 9px;
+  }
+
+  .keyboard-row {
+    gap: 3px;
+  }
+
+  .keyboard {
+    gap: 6px;
   }
 }
 
