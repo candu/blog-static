@@ -300,6 +300,110 @@ describe("GameState", () => {
       expect(gameState.satisfiesLetterStates(answer)).toBe(true);
     });
   });
+
+  describe("serialization", async () => {
+    const [validAnswers, validGuesses] = await Promise.all([
+      getWordListFromFile(path.join(__dirname, "../../public/data/wordle-answers.csv")),
+      getWordListFromFile(path.join(__dirname, "../../public/data/wordle-guesses.csv")),
+    ]);
+
+    describe("serialize", () => {
+      it("serializes empty game state", () => {
+        const state = new GameState("STARE", [], validAnswers, validGuesses);
+        const serialized = state.serialize();
+
+        expect(serialized).toEqual(
+          expect.objectContaining({
+            answer: "STARE",
+            guesses: [],
+            validAnswers,
+            validGuesses,
+          }),
+        );
+      });
+
+      it("serializes game state with guesses", () => {
+        const state = new GameState("STARE", ["CRANE", "SLATE"], validAnswers, validGuesses);
+        const serialized = state.serialize();
+
+        expect(serialized).toEqual(
+          expect.objectContaining({
+            answer: "STARE",
+            guesses: ["CRANE", "SLATE"],
+            validAnswers,
+            validGuesses,
+          }),
+        );
+      });
+
+      it("returns new array for guesses (not reference)", () => {
+        const guesses = ["CRANE"];
+        const state = new GameState("STARE", guesses, validAnswers, validGuesses);
+        const serialized = state.serialize();
+
+        serialized.guesses.push("SLATE");
+        expect(state.guesses).toEqual(["CRANE"]);
+      });
+    });
+
+    describe("deserialize", () => {
+      it("deserializes to equivalent GameState", () => {
+        const original = new GameState("STARE", ["CRANE"], validAnswers, validGuesses);
+        const serialized = original.serialize();
+        const deserialized = GameState.deserialize(serialized);
+
+        expect(deserialized.answer).toBe(original.answer);
+        expect(deserialized.guesses).toEqual(original.guesses);
+        expect(deserialized.validAnswers).toBe(original.validAnswers);
+        expect(deserialized.validGuesses).toBe(original.validGuesses);
+      });
+
+      it("round-trip preserves game state", () => {
+        const original = new GameState("STARE", ["CRANE", "SLATE"], validAnswers, validGuesses);
+        const roundTrip = GameState.deserialize(original.serialize());
+
+        expect(roundTrip.getStatus()).toBe(original.getStatus());
+        expect(roundTrip.isTerminal()).toBe(original.isTerminal());
+        expect(roundTrip.getLetterStates()).toEqual(original.getLetterStates());
+      });
+
+      it("handles filtered word lists", () => {
+        const state = new GameState("STARE", [], validAnswers, validGuesses);
+        const withGuess = state.withGuess("CRANE");
+
+        const serialized = withGuess.serialize();
+        const deserialized = GameState.deserialize(serialized);
+
+        expect(deserialized.validAnswers.length).toBe(withGuess.validAnswers.length);
+        expect(deserialized.validGuesses.length).toBe(withGuess.validGuesses.length);
+      });
+    });
+
+    describe("edge cases", () => {
+      it("handles single valid answer", () => {
+        const singleAnswer = [{ word: "STARE", count: 1 }];
+        const state = new GameState("STARE", [], singleAnswer, validGuesses);
+        const roundTrip = GameState.deserialize(state.serialize());
+
+        expect(roundTrip.validAnswers).toEqual(singleAnswer);
+      });
+
+      it("handles game in won state", () => {
+        const state = new GameState("STARE", ["STARE"], validAnswers, validGuesses);
+        const roundTrip = GameState.deserialize(state.serialize());
+
+        expect(roundTrip.getStatus()).toBe("won");
+      });
+
+      it("handles game in lost state", () => {
+        const guesses = ["CRANE", "SLATE", "BRAKE", "GRAPE", "DRAPE", "SHAPE"];
+        const state = new GameState("STARE", guesses, validAnswers, validGuesses);
+        const roundTrip = GameState.deserialize(state.serialize());
+
+        expect(roundTrip.getStatus()).toBe("lost");
+      });
+    });
+  });
 });
 
 describe("getAdversarialAnswer", async () => {
