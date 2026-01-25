@@ -3,8 +3,8 @@ import {
   GameStatus,
   LetterState,
   LetterStateUtils,
-  WORD_LENGTH,
   MAX_GUESSES,
+  WORD_LENGTH,
   getWordListFromURL,
 } from "./lib.js";
 
@@ -109,8 +109,9 @@ export class Game extends EventTarget {
     );
 
     try {
-      const { move, score, statesConsidered } =
-        await workerManager.computeAdversarialAnswer(this.state);
+      const { move, score, statesConsidered } = await workerManager.computeAdversarialAnswer(
+        this.state,
+      );
 
       const duration = performance.now() - startTime;
       console.log(`move: ${move}, score: ${score}`);
@@ -470,21 +471,37 @@ export class GameController {
     this.newGame();
   }
 
-  async _handleKeyClick(evt) {
+  async _handleKey(keyCode) {
     if (this.isThinking) {
       return;
     }
 
-    const keyCode = evt.target.dataset.key;
-    console.log("Key clicked:", keyCode);
+    console.log("Key input:", keyCode);
+
+    const isTerminal = this.game.state.isTerminal();
 
     if (keyCode === "Enter") {
-      await this.submitCurrentGuess();
-    } else if (keyCode === "Backspace") {
-      this.deleteLetter();
-    } else {
-      this.enterLetter(keyCode);
+      if (isTerminal) {
+        this.newGame();
+      } else {
+        await this.submitCurrentGuess();
+      }
     }
+
+    if (isTerminal) {
+      return;
+    }
+
+    if (keyCode === "Backspace") {
+      this.deleteLetter();
+    } else if (/^[a-zA-Z]$/.test(keyCode)) {
+      this.enterLetter(keyCode.toUpperCase());
+    }
+  }
+
+  async _handleKeyClick(evt) {
+    const keyCode = evt.target.dataset.key;
+    await this._handleKey(keyCode);
   }
 
   async _handleKeyDown(evt) {
@@ -493,19 +510,7 @@ export class GameController {
       return;
     }
 
-    if (this.isThinking) {
-      return;
-    }
-
-    console.log("Key pressed:", key);
-
-    if (key === "Enter") {
-      await this.submitCurrentGuess();
-    } else if (key === "Backspace") {
-      this.deleteLetter();
-    } else if (/^[a-zA-Z]$/.test(key)) {
-      this.enterLetter(key);
-    }
+    await this._handleKey(key);
   }
 
   _handleStatsAction(evt) {
