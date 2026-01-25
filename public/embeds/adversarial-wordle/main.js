@@ -89,9 +89,7 @@ export class Game extends EventTarget {
 
   _getRandomAnswer() {
     const i = Math.floor(Math.random() * this.validAnswers.length);
-    const { word, count } = this.validAnswers[i];
-
-    console.log(`Random answer: ${word} (count: ${count})`);
+    const { word } = this.validAnswers[i];
 
     return word;
   }
@@ -114,7 +112,6 @@ export class Game extends EventTarget {
       );
 
       const duration = performance.now() - startTime;
-      console.log(`move: ${move}, score: ${score}`);
       console.log(`states considered: ${statesConsidered}`);
       console.log(`duration: ${duration.toFixed(0)}ms`);
 
@@ -629,9 +626,6 @@ async function main() {
     getWordListFromURL("../../data/wordle-answers.csv"),
     getWordListFromURL("../../data/wordle-guesses.csv"),
   ]);
-
-  console.log("Answers:", validAnswers);
-  console.log("Guesses:", validGuesses);
 
   const $container = document.querySelector(".game");
   const gameController = new GameController(validAnswers, validGuesses, $container);
