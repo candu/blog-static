@@ -509,12 +509,14 @@ export const getGuessesToEvaluate = (gameState) => {
 };
 
 const HEURISTIC_MAX = [4, 3, 3, 2, 2, 1];
+const EVALUATION_TIME_MAX = 10000; // 10 seconds
 
 // expectimax
 // value is average number of remaining guesses
 // tree: answer (max) -> guess (expect) -> ...
 export const getAdversarialAnswer = (gameState) => {
   let statesConsidered = 0;
+  const startedAt = Date.now().valueOf();
 
   const evaluateNode = (gameState, nodeType, alpha, beta) => {
     statesConsidered += 1;
@@ -554,6 +556,10 @@ export const getAdversarialAnswer = (gameState) => {
           break;
         }
 
+        if (Date.now().valueOf() - startedAt > EVALUATION_TIME_MAX) {
+          break;
+        }
+
         // Update alpha
         alpha = Math.max(alpha, bestScore);
       }
@@ -587,6 +593,10 @@ export const getAdversarialAnswer = (gameState) => {
 
       // Beta cutoff: even worst case exceeds beta
       if (pessimisticFinalScore >= beta) {
+        return { move: null, score: pessimisticFinalScore };
+      }
+
+      if (Date.now().valueOf() - startedAt > EVALUATION_TIME_MAX) {
         return { move: null, score: pessimisticFinalScore };
       }
 
