@@ -352,6 +352,7 @@ export class GameView {
   _renderFinalScreen() {
     const status = this.game.state.getStatus();
     const guessCount = this.game.state.guesses.length;
+    const won = status === GameStatus.WON;
 
     // Record the game result
     this.statsManager.recordGame(this.game.state);
@@ -365,7 +366,14 @@ export class GameView {
     const $statsScreen = this.$container.querySelector(".stats-screen");
     $statsScreen.classList.add("visible");
 
-    this._populateStatsScreen(computedStats, guessCount, status === GameStatus.WON);
+    // Populate game result
+    const $resultTitle = $statsScreen.querySelector(".game-result-title");
+    const $secretWord = $statsScreen.querySelector(".secret-word");
+
+    $resultTitle.textContent = won ? "You got it!" : "Game over.";
+    $secretWord.textContent = this.game.state.answer;
+
+    this._populateStatsScreen(computedStats, guessCount, won);
   }
 
   _populateStatsScreen(stats, currentGuessCount, won) {
