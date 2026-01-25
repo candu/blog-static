@@ -471,6 +471,10 @@ export class GameController {
   }
 
   async _handleKeyClick(evt) {
+    if (this.isThinking) {
+      return;
+    }
+
     const keyCode = evt.target.dataset.key;
     console.log("Key clicked:", keyCode);
 
@@ -486,6 +490,10 @@ export class GameController {
   async _handleKeyDown(evt) {
     const { key, metaKey } = evt;
     if (metaKey) {
+      return;
+    }
+
+    if (this.isThinking) {
       return;
     }
 
@@ -539,7 +547,26 @@ export class GameController {
       this.gameView.destroy();
     }
 
+    // Clean up old game listeners if they exist
+    if (this.game) {
+      this.game.removeEventListener("loadingstart", this.onLoadingStart);
+      this.game.removeEventListener("loadingend", this.onLoadingEnd);
+    }
+
     this.game = new Game(this.validAnswers, this.validGuesses);
+    this.isThinking = false;
+
+    // Listen to loading events to block input
+    this.onLoadingStart = () => {
+      this.isThinking = true;
+    };
+    this.onLoadingEnd = () => {
+      this.isThinking = false;
+    };
+    this.game.addEventListener("loadingstart", this.onLoadingStart);
+    this.game.addEventListener("loadingend", this.onLoadingEnd);
+    this.game.addEventListener("loadingerror", this.onLoadingEnd);
+
     this.gameView = new GameView(this.game, this.statsManager, this.$container);
     this.gameView.render();
   }
@@ -571,6 +598,12 @@ export class GameController {
     }
 
     document.removeEventListener("keydown", this.onKeyDown);
+
+    if (this.game) {
+      this.game.removeEventListener("loadingstart", this.onLoadingStart);
+      this.game.removeEventListener("loadingend", this.onLoadingEnd);
+      this.game.removeEventListener("loadingerror", this.onLoadingEnd);
+    }
 
     if (this.gameView) {
       this.gameView.destroy();
