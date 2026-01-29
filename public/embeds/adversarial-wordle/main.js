@@ -204,6 +204,7 @@ export class Game extends EventTarget {
 
   absentLetters() {
     const absent = new Set();
+    const present = new Set();
 
     const letterStates = this.getLetterStates();
     letterStates.forEach((wordLetterStates, i) => {
@@ -212,11 +213,24 @@ export class Game extends EventTarget {
       }
 
       for (const letterState of wordLetterStates) {
-        if (letterState !== null && letterState.state === LetterState.ABSENT) {
+        if (letterState === null) {
+          continue;
+        }
+
+        if (letterState.state === LetterState.ABSENT) {
           absent.add(letterState.letter);
+        } else if (
+          letterState.state === LetterState.PRESENT ||
+          letterState.state === LetterState.CORRECT
+        ) {
+          present.add(letterState.letter);
         }
       }
     });
+
+    for (const letter of present) {
+      absent.delete(letter);
+    }
 
     return absent;
   }
